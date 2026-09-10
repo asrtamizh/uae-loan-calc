@@ -93,11 +93,15 @@
             <p class="text-[11px] text-amber-700 mt-0.5">⚠️ Mortgages & Auto Finance cannot be bought out (stay in DBR).</p>
           </div>
 
+          <!-- TENURE SLIDER (6 to 48 months in steps of 6) -->
           <div>
-            <label class="block text-sm font-medium mb-1">Loan Tenure (Months, Max 48)</label>
-            <input type="range" id="tenure" min="12" max="48" step="12" value="48" class="w-full accent-indigo-600">
-            <div class="flex justify-between text-xs text-slate-500">
-              <span>12 Mo</span><span>24 Mo</span><span>36 Mo</span><span class="font-bold text-indigo-600">48 Mo</span>
+            <div class="flex justify-between items-center mb-1">
+              <label class="block text-sm font-medium">Loan Tenure</label>
+              <span id="tenureText" class="text-sm font-bold text-indigo-900 bg-indigo-50 px-2 py-0.5 rounded border border-indigo-200">48 Months</span>
+            </div>
+            <input type="range" id="tenure" min="6" max="48" step="6" value="48" class="w-full accent-indigo-600">
+            <div class="flex justify-between text-[10px] text-slate-500 mt-1 font-medium">
+              <span>6m</span><span>12m</span><span>18m</span><span>24m</span><span>30m</span><span>36m</span><span>42m</span><span>48m</span>
             </div>
           </div>
         </div>
@@ -176,7 +180,7 @@
           <table class="w-full text-xs text-left border-collapse border border-slate-200">
             <thead>
               <tr class="bg-indigo-900 text-white">
-                <th class="p-2 border">Year</th>
+                <th class="p-2 border">Year / Period</th>
                 <th class="p-2 border">Total Payment (AED)</th>
                 <th class="p-2 border">Principal Paid (AED)</th>
                 <th class="p-2 border">Interest Paid (AED)</th>
@@ -246,6 +250,8 @@
       const cards = parseFloat(document.getElementById('cards').value) || 0;
       const existingEmi = parseFloat(document.getElementById('existingEmi').value) || 0;
       const tenure = parseInt(document.getElementById('tenure').value) || 48;
+
+      document.getElementById('tenureText').innerText = tenure + ' Months';
 
       // AECB Score Evaluation
       const aecbVal = document.getElementById('aecbScore').value.trim();
@@ -375,13 +381,15 @@
         `;
         monthlyTable.appendChild(mRow);
 
-        // Render Yearly Row at Year End or Final Month
+        // Render Yearly/Partial-Year Row at 12-month intervals or Final Month
         if (month % 12 === 0 || month === totalMonths) {
           const yearNumber = Math.ceil(month / 12);
+          const periodLabel = (month % 12 !== 0) ? `Year ${yearNumber} (Partial: Mos ${month - (month % 12) + 1}-${month})` : `Year ${yearNumber}`;
+          
           const yRow = document.createElement('tr');
           yRow.className = 'bg-slate-100 font-semibold text-slate-900';
           yRow.innerHTML = `
-            <td class="p-2 border text-center">Year ${yearNumber}</td>
+            <td class="p-2 border text-center">${periodLabel}</td>
             <td class="p-2 border">AED ${Math.round(yrTotalPaid).toLocaleString()}</td>
             <td class="p-2 border text-emerald-700">AED ${Math.round(yrPrincipal).toLocaleString()}</td>
             <td class="p-2 border text-amber-700">AED ${Math.round(yrInterest).toLocaleString()}</td>
