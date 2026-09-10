@@ -9,6 +9,14 @@
   <script src="https://cdn.tailwindcss.com"></script>
   <!-- Free client-side PDF export -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+
+  <style>
+    /* Prevent page breaks inside cards, boxes, and table rows during PDF export */
+    .pdf-avoid-break {
+      page-break-inside: avoid !important;
+      break-inside: avoid !important;
+    }
+  </style>
 </head>
 <body class="bg-slate-50 text-slate-800 font-sans p-4 md:p-8">
 
@@ -17,7 +25,7 @@
     <div class="bg-indigo-900 text-white p-6 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
       <div>
         <h1 class="text-2xl font-bold">UAE Loan & Buyout Calculator</h1>
-        <p class="text-indigo-200 text-sm mt-1">CBUAE 50% DBR Rules | 2026 Revised Rates</p>
+        <p class="text-indigo-200 text-sm mt-1">CBUAE 50% DBR Rules | May 2026 Revised Rates</p>
       </div>
       <button onclick="downloadPDF()" class="bg-emerald-500 hover:bg-emerald-600 text-white font-medium text-xs md:text-sm px-4 py-2.5 rounded-lg shadow transition flex items-center gap-2">
         <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -40,7 +48,7 @@
         </button>
       </div>
 
-      <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-6 pdf-avoid-break">
         <!-- Inputs Column -->
         <div class="space-y-4">
           <h2 class="text-lg font-semibold border-b pb-2 text-indigo-900">1. Applicant & Financial Details</h2>
@@ -107,7 +115,7 @@
         </div>
 
         <!-- Results Column -->
-        <div class="bg-slate-100 rounded-xl p-5 flex flex-col justify-between border border-slate-200">
+        <div class="bg-slate-100 rounded-xl p-5 flex flex-col justify-between border border-slate-200 pdf-avoid-break">
           <div>
             <h2 class="text-lg font-semibold border-b pb-2 mb-4 text-indigo-900">2. Assessment & Eligibility</h2>
 
@@ -131,7 +139,7 @@
             </div>
 
             <!-- Primary Highlight Box -->
-            <div class="bg-indigo-900 text-white rounded-xl p-4 mt-5 text-center shadow-inner">
+            <div class="bg-indigo-900 text-white rounded-xl p-4 mt-5 text-center shadow-inner pdf-avoid-break">
               <p id="principalLabel" class="text-xs uppercase tracking-wider text-indigo-200">Max Total Eligible Loan Facility</p>
               <p id="maxPrincipal" class="text-3xl font-extrabold mt-1">AED 436,898</p>
             </div>
@@ -164,7 +172,7 @@
           </div>
 
           <!-- Fee Exclusion Notice -->
-          <div class="mt-4 p-3 bg-amber-50 rounded-lg border border-amber-200 text-amber-900 text-[11px]">
+          <div class="mt-4 p-3 bg-amber-50 rounded-lg border border-amber-200 text-amber-900 text-[11px] pdf-avoid-break">
             <p class="font-bold">⚠️ Notice on Additional Fees:</p>
             <p>1% Processing Fee and 0.45% Takaful Insurance fee are <strong>not included</strong> in the calculations above and will be charged separately as per bank terms.</p>
           </div>
@@ -174,7 +182,7 @@
       </div>
 
       <!-- YEARLY AMORTIZATION SUMMARY -->
-      <div class="mt-8 border-t pt-6">
+      <div class="mt-8 border-t pt-6 pdf-avoid-break">
         <h3 class="text-md font-bold text-indigo-900 mb-3">Year-Wise Loan Breakdown</h3>
         <div class="overflow-x-auto">
           <table class="w-full text-xs text-left border-collapse border border-slate-200">
@@ -371,7 +379,7 @@
 
         // Render Monthly Row
         const mRow = document.createElement('tr');
-        mRow.className = month % 2 === 0 ? 'bg-slate-50' : 'bg-white';
+        mRow.className = (month % 2 === 0 ? 'bg-slate-50' : 'bg-white') + ' pdf-avoid-break';
         mRow.innerHTML = `
           <td class="p-2 border text-center font-medium">${month}</td>
           <td class="p-2 border">AED ${Math.round(emi).toLocaleString()}</td>
@@ -387,7 +395,7 @@
           const periodLabel = (month % 12 !== 0) ? `Year ${yearNumber} (Partial: Mos ${month - (month % 12) + 1}-${month})` : `Year ${yearNumber}`;
           
           const yRow = document.createElement('tr');
-          yRow.className = 'bg-slate-100 font-semibold text-slate-900';
+          yRow.className = 'bg-slate-100 font-semibold text-slate-900 pdf-avoid-break';
           yRow.innerHTML = `
             <td class="p-2 border text-center">${periodLabel}</td>
             <td class="p-2 border">AED ${Math.round(yrTotalPaid).toLocaleString()}</td>
@@ -406,13 +414,17 @@
 
     function downloadPDF() {
       const element = document.getElementById('quoteArea');
+      
+      // Force desktop width (1024px) during PDF render so mobile downloads don't stretch vertically & split boxes
       const opt = {
         margin:       [0.3, 0.3, 0.3, 0.3],
         filename:     `UAE_Loan_Schedule_${activeFacilityType.toUpperCase()}.pdf`,
         image:        { type: 'jpeg', quality: 0.98 },
-        html2canvas:  { scale: 2 },
-        jsPDF:        { unit: 'in', format: 'letter', orientation: 'portrait' }
+        html2canvas:  { scale: 2, windowWidth: 1024, useCORS: true },
+        jsPDF:        { unit: 'in', format: 'letter', orientation: 'portrait' },
+        pagebreak:    { mode: ['avoid-all', 'css', 'legacy'] }
       };
+
       html2pdf().set(opt).from(element).save();
     }
 
