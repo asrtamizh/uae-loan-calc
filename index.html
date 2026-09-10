@@ -31,7 +31,7 @@
     <div id="quoteArea" class="p-6">
       
       <!-- Facility Type Selector -->
-      <div class="mb-6 bg-slate-100 p-1.5 rounded-xl flex gap-2 border border-slate-200">
+      <div class="mb-6 bg-slate-100 p-1.5 rounded-xl flex gap-2 border border-slate-200 no-print">
         <button id="typeFreshBtn" onclick="setFacilityType('fresh')" class="flex-1 py-2.5 rounded-lg font-semibold text-sm transition bg-indigo-900 text-white shadow">
           Fresh Personal Loan
         </button>
@@ -158,9 +158,59 @@
               </div>
             </div>
           </div>
-          <p class="text-[10px] text-slate-400 mt-4 text-center">*Indicative quote following CBUAE regulations. Date: <span id="quoteDate"></span>.</p>
+
+          <!-- Fee Exclusion Notice -->
+          <div class="mt-4 p-3 bg-amber-50 rounded-lg border border-amber-200 text-amber-900 text-[11px]">
+            <p class="font-bold">⚠️ Notice on Additional Fees:</p>
+            <p>1% Processing Fee and 0.45% Takaful Insurance fee are <strong>not included</strong> in the calculations above and will be charged separately as per bank terms.</p>
+          </div>
+
+          <p class="text-[10px] text-slate-400 mt-2 text-center">*Indicative quote following CBUAE regulations. Date: <span id="quoteDate"></span>.</p>
         </div>
       </div>
+
+      <!-- YEARLY AMORTIZATION SUMMARY -->
+      <div class="mt-8 border-t pt-6">
+        <h3 class="text-md font-bold text-indigo-900 mb-3">Year-Wise Loan Breakdown</h3>
+        <div class="overflow-x-auto">
+          <table class="w-full text-xs text-left border-collapse border border-slate-200">
+            <thead>
+              <tr class="bg-indigo-900 text-white">
+                <th class="p-2 border">Year</th>
+                <th class="p-2 border">Total Payment (AED)</th>
+                <th class="p-2 border">Principal Paid (AED)</th>
+                <th class="p-2 border">Interest Paid (AED)</th>
+                <th class="p-2 border">Remaining Balance (AED)</th>
+              </tr>
+            </thead>
+            <tbody id="yearlyTableBody">
+              <!-- Dynamically populated -->
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- MONTHLY AMORTIZATION BREAKDOWN -->
+      <div class="mt-6 border-t pt-6">
+        <h3 class="text-md font-bold text-indigo-900 mb-3">Monthly Repayment Schedule (Amortization)</h3>
+        <div class="overflow-x-auto">
+          <table class="w-full text-xs text-left border-collapse border border-slate-200">
+            <thead>
+              <tr class="bg-slate-800 text-white">
+                <th class="p-2 border">Month</th>
+                <th class="p-2 border">Monthly EMI (AED)</th>
+                <th class="p-2 border">Towards Principal (AED)</th>
+                <th class="p-2 border">Towards Interest (AED)</th>
+                <th class="p-2 border">Ending Balance (AED)</th>
+              </tr>
+            </thead>
+            <tbody id="monthlyTableBody" class="divide-y divide-slate-200">
+              <!-- Dynamically populated -->
+            </tbody>
+          </table>
+        </div>
+      </div>
+
     </div>
   </div>
 
@@ -243,7 +293,7 @@
       if (hasAecbDiscount) rate -= 0.25;
 
       const maxDbr = salary * 0.50;
-      const commitments = cardCommitment + existingEmi; // Auto loans, mortgages, non-buyout card 5%
+      const commitments = cardCommitment + existingEmi;
       const availableEmi = Math.max(0, maxDbr - commitments);
 
       const monthlyRate = (rate / 100) / 12;
@@ -283,13 +333,74 @@
       } else {
         statusAlert.className = "hidden";
       }
+
+      // AMORTIZATION SCHEDULE CALCULATIONS
+      generateAmortizationSchedule(maxPrincipal, availableEmi, monthlyRate, tenure);
+    }
+
+    function generateAmortizationSchedule(principal, emi, monthlyRate, totalMonths) {
+      const monthlyTable = document.getElementById('monthlyTableBody');
+      const yearlyTable = document.getElementById('yearlyTableBody');
+      monthlyTable.innerHTML = '';
+      yearlyTable.innerHTML = '';
+
+      let currentBalance = principal;
+      let yrPrincipal = 0;
+      let yrInterest = 0;
+      let yrTotalPaid = 0;
+
+      for (let month = 1; month <= totalMonths; month++) {
+        let interestPart = currentBalance * monthlyRate;
+        let principalPart = emi - interestPart;
+
+        if (month === totalMonths) {
+          principalPart = currentBalance;
+        }
+
+        currentBalance = Math.max(0, currentBalance - principalPart);
+
+        yrPrincipal += principalPart;
+        yrInterest += interestPart;
+        yrTotalPaid += emi;
+
+        // Render Monthly Row
+        const mRow = document.createElement('tr');
+        mRow.className = month % 2 === 0 ? 'bg-slate-50' : 'bg-white';
+        mRow.innerHTML = `
+          <td class="p-2 border text-center font-medium">${month}</td>
+          <td class="p-2 border">AED ${Math.round(emi).toLocaleString()}</td>
+          <td class="p-2 border text-emerald-700 font-medium">AED ${Math.round(principalPart).toLocaleString()}</td>
+          <td class="p-2 border text-amber-700 font-medium">AED ${Math.round(interestPart).toLocaleString()}</td>
+          <td class="p-2 border">AED ${Math.round(currentBalance).toLocaleString()}</td>
+        `;
+        monthlyTable.appendChild(mRow);
+
+        // Render Yearly Row at Year End or Final Month
+        if (month % 12 === 0 || month === totalMonths) {
+          const yearNumber = Math.ceil(month / 12);
+          const yRow = document.createElement('tr');
+          yRow.className = 'bg-slate-100 font-semibold text-slate-900';
+          yRow.innerHTML = `
+            <td class="p-2 border text-center">Year ${yearNumber}</td>
+            <td class="p-2 border">AED ${Math.round(yrTotalPaid).toLocaleString()}</td>
+            <td class="p-2 border text-emerald-700">AED ${Math.round(yrPrincipal).toLocaleString()}</td>
+            <td class="p-2 border text-amber-700">AED ${Math.round(yrInterest).toLocaleString()}</td>
+            <td class="p-2 border">AED ${Math.round(currentBalance).toLocaleString()}</td>
+          `;
+          yearlyTable.appendChild(yRow);
+
+          yrPrincipal = 0;
+          yrInterest = 0;
+          yrTotalPaid = 0;
+        }
+      }
     }
 
     function downloadPDF() {
       const element = document.getElementById('quoteArea');
       const opt = {
-        margin:       0.4,
-        filename:     `Loan_Quote_${activeFacilityType.toUpperCase()}_UAE.pdf`,
+        margin:       [0.3, 0.3, 0.3, 0.3],
+        filename:     `UAE_Loan_Schedule_${activeFacilityType.toUpperCase()}.pdf`,
         image:        { type: 'jpeg', quality: 0.98 },
         html2canvas:  { scale: 2 },
         jsPDF:        { unit: 'in', format: 'letter', orientation: 'portrait' }
