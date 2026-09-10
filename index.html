@@ -7,42 +7,14 @@
   <link rel="manifest" href="manifest.json">
   <meta name="theme-color" content="#312e81">
   <script src="https://cdn.tailwindcss.com"></script>
-  <!-- Client-side PDF export -->
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+  <!-- Client-side Excel export -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 
   <style>
-    /* Prevent unwanted page breaks during PDF export */
+    /* Prevent unwanted page breaks if the page is ever printed directly */
     .pdf-avoid-break {
       page-break-inside: avoid !important;
       break-inside: avoid !important;
-    }
-
-    /* Fallback styling if someone uses the browser's native
-       Ctrl+P / "Print to PDF" instead of the Download PDF button. */
-    @media print {
-      body {
-        background: #fff !important;
-        padding: 0 !important;
-      }
-      .no-print {
-        display: none !important;
-      }
-      #quoteArea {
-        width: 100% !important;
-        max-width: 100% !important;
-      }
-      table {
-        table-layout: fixed !important;
-        width: 100% !important;
-      }
-      table td, table th {
-        word-break: break-word !important;
-        overflow-wrap: break-word !important;
-        white-space: normal !important;
-      }
-      .overflow-x-auto {
-        overflow: visible !important;
-      }
     }
   </style>
 </head>
@@ -55,11 +27,11 @@
         <h1 class="text-2xl font-bold">UAE Loan & Buyout Calculator</h1>
         <p class="text-indigo-200 text-sm mt-1">CBUAE 50% DBR Rules | 2026 Revised Rates</p>
       </div>
-      <button onclick="downloadPDF()" class="bg-emerald-500 hover:bg-emerald-600 text-white font-medium text-xs md:text-sm px-4 py-2.5 rounded-lg shadow transition flex items-center gap-2">
+      <button onclick="downloadExcel()" class="bg-emerald-500 hover:bg-emerald-600 text-white font-medium text-xs md:text-sm px-4 py-2.5 rounded-lg shadow transition flex items-center gap-2">
         <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
         </svg>
-        Download PDF Quote (Customer Copy)
+        Download Excel Quote (Customer Copy)
       </button>
     </div>
 
@@ -159,7 +131,7 @@
         <!-- Results Column -->
         <div id="resultsPanel" class="bg-slate-100 rounded-xl p-5 flex flex-col justify-between border border-slate-200 pdf-avoid-break">
           <div>
-            <h2 class="text-lg font-semibold border-b pb-2 mb-4 text-indigo-900">2. Assessment & Eligibility</h2>
+            <h2 class="text-lg font-semibold border-b pb-2 mb-4 text-indigo-900">Assessment & Eligibility</h2>
 
             <div class="space-y-3 text-sm">
               <div class="flex justify-between">
@@ -270,6 +242,11 @@
 
   <script>
     let activeFacilityType = 'fresh';
+
+    // Holds the latest computed figures (as real numbers, not formatted
+    // strings) so the Excel export can use them directly without having
+    // to re-parse "AED 12,500"-style text back out of the DOM.
+    let lastCalc = null;
 
     function setFacilityType(type) {
       activeFacilityType = type;
@@ -413,7 +390,28 @@
         statusAlert.className = "hidden";
       }
 
-      generateAmortizationSchedule(finalPrincipal, actualEmi, monthlyRate, tenure);
+      // Snapshot everything the Excel export needs, as plain numbers.
+      const monthlySchedule = generateAmortizationSchedule(finalPrincipal, actualEmi, monthlyRate, tenure);
+      lastCalc = {
+        facilityType: activeFacilityType,
+        rateDisplayText,
+        maxDbr,
+        commitments,
+        availableEmi,
+        finalPrincipal,
+        actualEmi,
+        totalInterest,
+        totalRepayment,
+        tenure,
+        isBuyout: activeFacilityType === 'buyout',
+        totalBuyoutSettlement,
+        topupCash: finalPrincipal - totalBuyoutSettlement,
+        buyoutEligible: (finalPrincipal - totalBuyoutSettlement) >= 0,
+        cappedBySalary: maxPrincipalFromDBR > maxSalaryCap && maxSalaryCap > 0,
+        maxSalaryCap,
+        salaryMultiplier,
+        monthlySchedule
+      };
     }
 
     function generateAmortizationSchedule(principal, emi, monthlyRate, totalMonths) {
@@ -422,7 +420,9 @@
       monthlyTable.innerHTML = '';
       yearlyTable.innerHTML = '';
 
-      if (principal <= 0 || emi <= 0) return;
+      const monthlyRows = [];
+
+      if (principal <= 0 || emi <= 0) return monthlyRows;
 
       let currentBalance = principal;
       let yrPrincipal = 0;
@@ -442,6 +442,16 @@
         yrPrincipal += principalPart;
         yrInterest += interestPart;
         yrTotalPaid += emi;
+
+        // Keep clean numeric values (rounded the same way the on-screen
+        // table displays them) for the Excel monthly breakup export.
+        monthlyRows.push({
+          month,
+          emi: Math.round(emi),
+          principal: Math.round(principalPart),
+          interest: Math.round(interestPart),
+          balance: Math.round(currentBalance)
+        });
 
         const mRow = document.createElement('tr');
         mRow.className = (month % 2 === 0 ? 'bg-slate-50' : 'bg-white') + ' pdf-avoid-break';
@@ -474,128 +484,90 @@
           yrTotalPaid = 0;
         }
       }
+
+      return monthlyRows;
     }
 
-async function downloadPDF() {
-  // Customer-facing quote = ONLY the "Assessment & Eligibility" results
-  // panel (rate, DBR, headroom, max facility, buyout breakup, fees notice).
-  // The applicant's raw inputs (salary, AECB score, etc.), the facility
-  // type toggle, and the full amortization tables are internal/working
-  // detail and are intentionally left out of the downloaded PDF.
-  const source = document.getElementById('resultsPanel');
+function downloadExcel() {
+  if (!lastCalc) {
+    alert('Please wait for the calculation to finish, then try again.');
+    return;
+  }
 
-  // Fixed pixel width used for the print-only copy of the quote.
-  // Rendering a REAL element at this width (rather than asking html2canvas
-  // to reinterpret the live, viewport-sized element via windowWidth) is
-  // what makes this behave identically on a 1440px desktop and a 390px
-  // phone. The old windowWidth-based approach shifted/cropped content on
-  // wide desktop viewports because html2canvas's internal offset math is
-  // based on the *real* window size, not just the width option.
-  const PDF_RENDER_WIDTH = 480;
-
-  // 1. Build a fully detached, off-screen host and clone the results panel into it.
-  const printHost = document.createElement('div');
-  printHost.id = 'pdfPrintHost';
-  printHost.style.position = 'fixed';
-  printHost.style.top = '0';
-  printHost.style.left = '0';
-  printHost.style.zIndex = '-1';
-  printHost.style.width = PDF_RENDER_WIDTH + 'px';
-  printHost.style.background = '#ffffff';
-  printHost.style.opacity = '0';       // invisible to the user
-  printHost.style.pointerEvents = 'none';
-
-  // Wrapper adds a simple customer-facing header, since the results panel
-  // on its own no longer carries the app's title/branding bar with it.
-  const wrapper = document.createElement('div');
-  wrapper.id = 'quotePrintClone';
-  wrapper.style.width = PDF_RENDER_WIDTH + 'px';
-  wrapper.style.maxWidth = PDF_RENDER_WIDTH + 'px';
-  wrapper.style.margin = '0';
-  wrapper.style.padding = '20px';
-  wrapper.style.boxSizing = 'border-box';
-  wrapper.style.background = '#ffffff';
-  wrapper.style.fontFamily = 'inherit';
-
-  const facilityTitle = activeFacilityType === 'buyout'
+  const c = lastCalc;
+  const facilityTitle = c.isBuyout
     ? 'Liability Buyout / Consolidation Quote'
     : 'Fresh Personal Loan Quote';
-  const tenureMonths = document.getElementById('tenure').value;
 
-  const header = document.createElement('div');
-  header.style.marginBottom = '16px';
-  header.style.paddingBottom = '12px';
-  header.style.borderBottom = '2px solid #312e81';
-  header.innerHTML = `
-    <div style="font-size:18px;font-weight:800;color:#312e81;">${facilityTitle}</div>
-    <div style="font-size:11px;color:#64748b;margin-top:2px;">Tenure: ${tenureMonths} Months &nbsp;•&nbsp; Indicative quote, subject to bank approval</div>
-  `;
-  wrapper.appendChild(header);
+  // --- Sheet 1: Quote Summary (Assessment & Eligibility + Breakup) ---
+  // Customer-facing only: no raw applicant inputs (salary, AECB score,
+  // etc.) and no "2." style internal section numbering.
+  const summaryRows = [
+    [facilityTitle],
+    [`Tenure: ${c.tenure} Months`],
+    ['Indicative quote, subject to bank approval'],
+    [],
+    ['Assessment & Eligibility'],
+    ['Applicable Profit Rate', c.rateDisplayText],
+    ['Max DBR Limit (50% Salary)', 'AED ' + Math.round(c.maxDbr).toLocaleString()],
+    ['Retained Monthly Commitments', 'AED ' + Math.round(c.commitments).toLocaleString()],
+    ['Available Monthly EMI Headroom', 'AED ' + Math.round(c.availableEmi).toLocaleString()],
+    [],
+    [c.isBuyout ? 'Max Total Approved Facility (Buyout + Cash)' : 'Max Eligible Fresh Loan Principal', 'AED ' + Math.floor(c.finalPrincipal).toLocaleString()]
+  ];
 
-  const clone = source.cloneNode(true);
-  clone.id = 'resultsPanelPrintClone';
-  clone.style.width = '100%';
-  clone.style.margin = '0';
-  clone.style.boxSizing = 'border-box';
-  clone.style.overflow = 'visible';
-  clone.style.boxShadow = 'none';
-  clone.classList.remove('flex', 'justify-between');
-  wrapper.appendChild(clone);
+  if (c.cappedBySalary) {
+    summaryRows.push([`Capped by ${c.salaryMultiplier}x Salary Limit`, 'AED ' + Math.round(c.maxSalaryCap).toLocaleString()]);
+  }
 
-  // Simple footer with a generation timestamp for the customer's copy.
-  const footer = document.createElement('div');
-  footer.style.marginTop = '14px';
-  footer.style.paddingTop = '10px';
-  footer.style.borderTop = '1px solid #e2e8f0';
-  footer.style.fontSize = '9px';
-  footer.style.color = '#94a3b8';
-  footer.style.textAlign = 'center';
-  footer.innerText = `Generated on ${new Date().toLocaleDateString()}`;
-  wrapper.appendChild(footer);
+  if (c.isBuyout) {
+    summaryRows.push(
+      [],
+      ['Buyout Breakup'],
+      ['Total Debt to Settle (Buyout)', 'AED ' + Math.round(c.totalBuyoutSettlement).toLocaleString()],
+      ['Additional In-Hand Cash (Top-Up)', c.buyoutEligible ? 'AED ' + Math.floor(c.topupCash).toLocaleString() : 'AED 0 (Insufficient DBR)'],
+      ['Eligibility Status', c.buyoutEligible
+        ? 'Buyout Eligible: Salary DBR covers liability settlement + cash top-up.'
+        : 'Ineligible: Total buyout debt exceeds maximum eligible loan capacity.']
+    );
+  }
 
-  // Force every table inside the panel (none expected today, but future-proof)
-  // to a fixed layout that respects the container width.
-  wrapper.querySelectorAll('table').forEach(table => {
-    table.style.width = '100%';
-    table.style.tableLayout = 'fixed';
-    table.style.wordBreak = 'break-word';
+  summaryRows.push(
+    [],
+    ['Actual Monthly EMI', 'AED ' + Math.round(c.actualEmi).toLocaleString()],
+    ['Total Interest Charged', 'AED ' + Math.round(c.totalInterest).toLocaleString()],
+    ['Total Loan Repayment', 'AED ' + Math.round(c.totalRepayment).toLocaleString()],
+    [],
+    ['Notice on Additional Fees'],
+    ['1% Processing Fee and 0.45% Takaful Insurance fee are not included in the calculations above and will be charged separately as per bank terms.'],
+    [],
+    [`Generated on ${new Date().toLocaleDateString()}`]
+  );
+
+  const summarySheet = XLSX.utils.aoa_to_sheet(summaryRows);
+  summarySheet['!cols'] = [{ wch: 42 }, { wch: 30 }];
+
+  // --- Sheet 2: Monthly Breakup (full amortization schedule) ---
+  const monthlyRows = [
+    ['Month', 'Monthly EMI (AED)', 'Towards Principal (AED)', 'Towards Interest (AED)', 'Ending Balance (AED)']
+  ];
+  c.monthlySchedule.forEach(row => {
+    monthlyRows.push([row.month, row.emi, row.principal, row.interest, row.balance]);
   });
-  wrapper.querySelectorAll('table td, table th').forEach(cell => {
-    cell.style.wordBreak = 'break-word';
-    cell.style.overflowWrap = 'break-word';
-    cell.style.whiteSpace = 'normal';
-  });
+  const monthlySheet = XLSX.utils.aoa_to_sheet(monthlyRows);
+  monthlySheet['!cols'] = [
+    { wch: 8 }, { wch: 18 }, { wch: 22 }, { wch: 20 }, { wch: 18 }
+  ];
 
-  printHost.appendChild(wrapper);
-  document.body.appendChild(printHost);
-
-  const opt = {
-    margin:       [0.3, 0.3, 0.3, 0.3],
-    filename:     `UAE_Loan_Quote_${activeFacilityType.toUpperCase()}.pdf`,
-    image:        { type: 'jpeg', quality: 0.98 },
-    html2canvas:  {
-      scale: 2,
-      useCORS: true,
-      scrollX: 0,
-      scrollY: 0,
-      width: PDF_RENDER_WIDTH,
-      windowWidth: PDF_RENDER_WIDTH,
-      logging: false
-    },
-    jsPDF:        { unit: 'in', format: 'a4', orientation: 'portrait' },
-    pagebreak:    { mode: ['avoid-all', 'css', 'legacy'] }
-  };
+  const workbook = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(workbook, summarySheet, 'Quote Summary');
+  XLSX.utils.book_append_sheet(workbook, monthlySheet, 'Monthly Breakup');
 
   try {
-    // 2. Render the detached, fixed-width clone — not the live element —
-    //    so desktop and mobile always capture identically.
-    await html2pdf().set(opt).from(wrapper).save();
+    XLSX.writeFile(workbook, `UAE_Loan_Quote_${c.facilityType.toUpperCase()}.xlsx`);
   } catch (err) {
-    console.error('PDF generation error:', err);
-    alert('Sorry, something went wrong generating the PDF. Please try again.');
-  } finally {
-    // 3. Always clean up the off-screen clone, even if generation failed.
-    printHost.remove();
+    console.error('Excel generation error:', err);
+    alert('Sorry, something went wrong generating the Excel file. Please try again.');
   }
 }
 
