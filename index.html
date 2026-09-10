@@ -448,49 +448,70 @@
       }
     }
 
-    async function downloadPDF() {
-      const element = document.getElementById('quoteArea');
+async function downloadPDF() {
+  const element = document.getElementById('quoteArea');
 
-      const opt = {
-        margin:       [0.3, 0.3, 0.3, 0.3],
-        filename:     `UAE_Loan_Schedule_${activeFacilityType.toUpperCase()}.pdf`,
-        image:        { type: 'jpeg', quality: 0.98 },
-        html2canvas:  { 
-          scale: 2, 
-          useCORS: true,
-          scrollX: 0,
-          scrollY: 0,
-          windowWidth: 1024,
-          logging: false,
-          onclone: (clonedDoc) => {
-            // Hide elements marked as no-print in virtual snapshot
-            clonedDoc.querySelectorAll('.no-print').forEach(el => el.style.display = 'none');
-            
-            // Force 2-column grid layout for PDF rendering regardless of screen size
-            const mainGrid = clonedDoc.getElementById('mainGrid');
-            if (mainGrid) {
-              mainGrid.style.display = 'grid';
-              mainGrid.style.gridTemplateColumns = '1fr 1fr';
-              mainGrid.style.gap = '1.5rem';
-            }
+  const opt = {
+    margin:       [0.4, 0.4, 0.4, 0.4],
+    filename:     `UAE_Loan_Schedule_${activeFacilityType.toUpperCase()}.pdf`,
+    image:        { type: 'jpeg', quality: 0.98 },
+    html2canvas:  { 
+      scale: 2, 
+      useCORS: true,
+      scrollX: 0,
+      scrollY: 0,
+      windowWidth: 1024,
+      logging: false,
+      onclone: (clonedDoc) => {
+        // Hide interactive elements marked as no-print
+        clonedDoc.querySelectorAll('.no-print').forEach(el => el.style.display = 'none');
 
-            const quoteArea = clonedDoc.getElementById('quoteArea');
-            if (quoteArea) {
-              quoteArea.style.width = '800px';
-              quoteArea.style.backgroundColor = '#ffffff';
-            }
+        // Convert form inputs/selects to plain text
+        clonedDoc.querySelectorAll('input, select').forEach(input => {
+          const valDisplay = clonedDoc.createElement('div');
+          valDisplay.className = 'font-bold text-slate-900 text-xs py-1 border-b border-slate-300';
+          
+          if (input.tagName === 'SELECT') {
+            valDisplay.innerText = input.options[input.selectedIndex]?.text || input.value;
+          } else if (input.type === 'range') {
+            valDisplay.style.display = 'none';
+          } else {
+            valDisplay.innerText = input.value ? input.value : '-';
           }
-        },
-        jsPDF:        { unit: 'in', format: 'letter', orientation: 'portrait' },
-        pagebreak:    { mode: ['avoid-all', 'css', 'legacy'] }
-      };
+          
+          input.parentNode.insertBefore(valDisplay, input);
+          input.remove();
+        });
 
-      try {
-        await html2pdf().set(opt).from(element).save();
-      } catch (err) {
-        console.error('PDF generation error:', err);
+        // Set container width specifically for A4 printable area (~710px)
+        const container = clonedDoc.getElementById('quoteArea');
+        if (container) {
+          container.style.width = '710px';
+          container.style.padding = '0px';
+          container.style.margin = '0 auto';
+          container.style.boxSizing = 'border-box';
+        }
+
+        // Maintain 2-column side-by-side grid layout
+        const mainGrid = clonedDoc.getElementById('mainGrid');
+        if (mainGrid) {
+          mainGrid.style.display = 'grid';
+          mainGrid.style.gridTemplateColumns = '1fr 1fr';
+          mainGrid.style.gap = '1rem';
+          mainGrid.style.width = '100%';
+        }
       }
-    }
+    },
+    jsPDF:        { unit: 'in', format: 'a4', orientation: 'portrait' },
+    pagebreak:    { mode: ['avoid-all', 'css', 'legacy'] }
+  };
+
+  try {
+    await html2pdf().set(opt).from(element).save();
+  } catch (err) {
+    console.error('PDF generation error:', err);
+  }
+}
 
     document.querySelectorAll('input, select').forEach(el => el.addEventListener('input', calculate));
     calculate();
