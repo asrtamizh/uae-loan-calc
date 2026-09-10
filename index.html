@@ -66,6 +66,20 @@
             <input type="number" id="salary" value="25000" class="w-full border rounded-lg p-2.5 bg-slate-50">
           </div>
 
+          <!-- SALARY MULTIPLIER CAP INPUT -->
+          <div>
+            <label class="block text-sm font-medium mb-1">Max Salary Multiplier Cap (e.g., 20x)</label>
+            <input type="number" id="salaryMultiplier" value="20" min="1" max="30" step="1" class="w-full border rounded-lg p-2.5 bg-slate-50" placeholder="e.g. 20 for 20 times salary">
+            <p class="text-xs text-slate-500 mt-1">Standard CBUAE rule is 20x gross salary. Lower if customer restricted.</p>
+          </div>
+
+          <!-- ADDITIONAL PROFIT RATE / MARGIN INPUT -->
+          <div>
+            <label class="block text-sm font-medium mb-1">Additional Profit Rate Margin (+%)</label>
+            <input type="number" id="extraRate" value="0" min="0" max="20" step="0.25" class="w-full border rounded-lg p-2.5 bg-slate-50" placeholder="e.g. 3 for +3% extra rate">
+            <p class="text-xs text-slate-500 mt-1">Adds extra rate percentage on top of base rack rate.</p>
+          </div>
+
           <!-- AECB SCORE INPUT -->
           <div>
             <label class="block text-sm font-medium mb-1">AECB Score (Credit Bureau Score)</label>
@@ -142,6 +156,7 @@
             <div class="bg-indigo-900 text-white rounded-xl p-4 mt-5 text-center shadow-inner pdf-avoid-break">
               <p id="principalLabel" class="text-xs uppercase tracking-wider text-indigo-200">Max Total Eligible Loan Facility</p>
               <p id="maxPrincipal" class="text-3xl font-extrabold mt-1">AED 436,898</p>
+              <p id="capNoticeText" class="text-[11px] text-indigo-200 mt-1 hidden"></p>
             </div>
 
             <!-- BUYOUT BREAKDOWN CONTAINER -->
@@ -161,13 +176,18 @@
 
             <div class="grid grid-cols-2 gap-2 mt-4 text-center text-xs">
               <div class="bg-white p-2.5 rounded-lg border">
-                <span class="block text-slate-500">Total Loan Repayment</span>
-                <span id="totalRepayment" class="font-bold text-slate-800 text-sm">AED 504,000</span>
+                <span class="block text-slate-500">Actual Monthly EMI</span>
+                <span id="actualEmiDisplay" class="font-bold text-slate-800 text-sm">AED 10,500</span>
               </div>
               <div class="bg-white p-2.5 rounded-lg border">
                 <span class="block text-slate-500">Total Interest Charged</span>
                 <span id="totalInterest" class="font-bold text-slate-800 text-sm">AED 67,102</span>
               </div>
+            </div>
+            
+            <div class="mt-2 bg-white p-2 rounded-lg border text-center text-xs">
+              <span class="text-slate-500">Total Loan Repayment: </span>
+              <span id="totalRepayment" class="font-bold text-slate-800">AED 504,000</span>
             </div>
           </div>
 
@@ -255,6 +275,8 @@
     function calculate() {
       const isNational = document.getElementById('category').value === 'national';
       const salary = parseFloat(document.getElementById('salary').value) || 0;
+      const salaryMultiplier = parseFloat(document.getElementById('salaryMultiplier').value) || 20;
+      const extraRate = parseFloat(document.getElementById('extraRate').value) || 0;
       const cards = parseFloat(document.getElementById('cards').value) || 0;
       const existingEmi = parseFloat(document.getElementById('existingEmi').value) || 0;
       const tenure = parseInt(document.getElementById('tenure').value) || 48;
@@ -287,52 +309,86 @@
       const cardCommitment = cards * 0.05;
       document.getElementById('cardCommitmentText').innerText = cardCommitment.toLocaleString();
 
-      // Interest Rate Grid Matrix (2026 Revised Rates)
-      let rate = 0;
+      // Base Profit Rate Grid Matrix (May 2026 Revised Rates)
+      let baseRate = 0;
       if (isNational) {
-        if (salary < 10000) rate = 12.35;
-        else if (salary < 15000) rate = 6.99;
-        else if (salary < 30000) rate = 6.24;
-        else if (salary < 40000) rate = 5.49;
-        else rate = 5.25;
+        if (salary < 10000) baseRate = 12.35;
+        else if (salary < 15000) baseRate = 6.99;
+        else if (salary < 30000) baseRate = 6.24;
+        else if (salary < 40000) baseRate = 5.49;
+        else baseRate = 5.25;
       } else {
-        if (salary < 10000) rate = 12.81;
-        else if (salary < 20000) rate = 7.49;
-        else if (salary < 30000) rate = 6.99;
-        else if (salary < 50000) rate = 6.37;
-        else rate = 5.65;
+        if (salary < 10000) baseRate = 12.81;
+        else if (salary < 20000) baseRate = 7.49;
+        else if (salary < 30000) baseRate = 6.99;
+        else if (salary < 50000) baseRate = 6.37;
+        else baseRate = 5.65;
       }
 
-      // Apply AECB Discount if score > 711
-      if (hasAecbDiscount) rate -= 0.25;
+      // Add extra profit margin & subtract AECB discount if applicable
+      let totalRate = baseRate + extraRate;
+      if (hasAecbDiscount) totalRate -= 0.25;
+      totalRate = Math.max(0.1, totalRate); // Floor at 0.1%
 
       const maxDbr = salary * 0.50;
       const commitments = cardCommitment + existingEmi;
       const availableEmi = Math.max(0, maxDbr - commitments);
 
-      const monthlyRate = (rate / 100) / 12;
-      let maxPrincipal = 0;
+      const monthlyRate = (totalRate / 100) / 12;
+      
+      // Calculate max principal allowed strictly by DBR headroom
+      let maxPrincipalFromDBR = 0;
       if (monthlyRate > 0 && availableEmi > 0) {
-        maxPrincipal = availableEmi * ((Math.pow(1 + monthlyRate, tenure) - 1) / (monthlyRate * Math.pow(1 + monthlyRate, tenure)));
+        maxPrincipalFromDBR = availableEmi * ((Math.pow(1 + monthlyRate, tenure) - 1) / (monthlyRate * Math.pow(1 + monthlyRate, tenure)));
       }
 
-      const totalRepayment = availableEmi * tenure;
-      const totalInterest = totalRepayment - maxPrincipal;
+      // Salary multiplier cap (e.g., 20x salary or custom)
+      const maxSalaryCap = salary * salaryMultiplier;
 
-      // Update output display
-      document.getElementById('appliedRate').innerText = rate.toFixed(2) + '%';
+      // Final eligible principal is capped by salary multiplier if DBR allows more
+      const finalPrincipal = Math.min(maxPrincipalFromDBR, maxSalaryCap);
+
+      // Recalculate actual monthly EMI required for the capped principal
+      let actualEmi = availableEmi;
+      if (finalPrincipal < maxPrincipalFromDBR && finalPrincipal > 0 && monthlyRate > 0) {
+        actualEmi = finalPrincipal * (monthlyRate * Math.pow(1 + monthlyRate, tenure)) / (Math.pow(1 + monthlyRate, tenure) - 1);
+      } else if (finalPrincipal === 0) {
+        actualEmi = 0;
+      }
+
+      const totalRepayment = actualEmi * tenure;
+      const totalInterest = Math.max(0, totalRepayment - finalPrincipal);
+
+      // Display applied profit rate details
+      let rateDisplayText = totalRate.toFixed(2) + '%';
+      if (extraRate > 0) {
+        rateDisplayText += ` (${baseRate.toFixed(2)}% Base + ${extraRate}%)`;
+      }
+      document.getElementById('appliedRate').innerText = rateDisplayText;
+
+      // Update output values
       document.getElementById('maxDbr').innerText = 'AED ' + Math.round(maxDbr).toLocaleString();
       document.getElementById('totalCommitments').innerText = 'AED ' + Math.round(commitments).toLocaleString();
       document.getElementById('availableEmi').innerText = 'AED ' + Math.round(availableEmi).toLocaleString();
-      document.getElementById('maxPrincipal').innerText = 'AED ' + Math.floor(maxPrincipal).toLocaleString();
+      document.getElementById('maxPrincipal').innerText = 'AED ' + Math.floor(finalPrincipal).toLocaleString();
+      document.getElementById('actualEmiDisplay').innerText = 'AED ' + Math.round(actualEmi).toLocaleString();
       document.getElementById('totalRepayment').innerText = 'AED ' + Math.round(totalRepayment).toLocaleString();
       document.getElementById('totalInterest').innerText = 'AED ' + Math.round(totalInterest).toLocaleString();
       document.getElementById('quoteDate').innerText = new Date().toLocaleDateString();
 
+      // Show Notice if limited by Salary Multiplier
+      const capNoticeText = document.getElementById('capNoticeText');
+      if (maxPrincipalFromDBR > maxSalaryCap && maxSalaryCap > 0) {
+        capNoticeText.innerText = `ℹ️ Capped by ${salaryMultiplier}x Salary Limit (AED ${Math.round(maxSalaryCap).toLocaleString()})`;
+        capNoticeText.classList.remove('hidden');
+      } else {
+        capNoticeText.classList.add('hidden');
+      }
+
       // Buyout calculations & alerts
       const statusAlert = document.getElementById('statusAlert');
       if (activeFacilityType === 'buyout') {
-        const topup = maxPrincipal - totalBuyoutSettlement;
+        const topup = finalPrincipal - totalBuyoutSettlement;
         document.getElementById('totalBuyoutSettlement').innerText = 'AED ' + totalBuyoutSettlement.toLocaleString();
         
         if (topup >= 0) {
@@ -349,7 +405,7 @@
       }
 
       // AMORTIZATION SCHEDULE CALCULATIONS
-      generateAmortizationSchedule(maxPrincipal, availableEmi, monthlyRate, tenure);
+      generateAmortizationSchedule(finalPrincipal, actualEmi, monthlyRate, tenure);
     }
 
     function generateAmortizationSchedule(principal, emi, monthlyRate, totalMonths) {
@@ -357,6 +413,8 @@
       const yearlyTable = document.getElementById('yearlyTableBody');
       monthlyTable.innerHTML = '';
       yearlyTable.innerHTML = '';
+
+      if (principal <= 0 || emi <= 0) return;
 
       let currentBalance = principal;
       let yrPrincipal = 0;
@@ -415,7 +473,6 @@
     function downloadPDF() {
       const element = document.getElementById('quoteArea');
       
-      // Force desktop width (1024px) during PDF render so mobile downloads don't stretch vertically & split boxes
       const opt = {
         margin:       [0.3, 0.3, 0.3, 0.3],
         filename:     `UAE_Loan_Schedule_${activeFacilityType.toUpperCase()}.pdf`,
