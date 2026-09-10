@@ -48,7 +48,7 @@
         </button>
       </div>
 
-      <div class="grid grid-cols-1 md:grid-cols-2 gap-6 pdf-avoid-break">
+      <div id="mainGrid" class="grid grid-cols-1 md:grid-cols-2 gap-6 pdf-avoid-break">
         <!-- Inputs Column -->
         <div class="space-y-4">
           <h2 class="text-lg font-semibold border-b pb-2 text-indigo-900">1. Applicant & Financial Details</h2>
@@ -470,19 +470,44 @@
       }
     }
 
-    function downloadPDF() {
+    async function downloadPDF() {
       const element = document.getElementById('quoteArea');
-      
+      const mainGrid = document.getElementById('mainGrid');
+
+      // Preserve original inline styles
+      const originalStyle = element.getAttribute('style') || '';
+      const originalGridStyle = mainGrid.getAttribute('style') || '';
+
+      // Force fixed desktop dimensions & 2-column grid layout during PDF snapshot
+      window.scrollTo(0, 0);
+      element.style.width = '800px';
+      element.style.maxWidth = '800px';
+      element.style.margin = '0 auto';
+      mainGrid.style.display = 'grid';
+      mainGrid.style.gridTemplateColumns = '1fr 1fr';
+
       const opt = {
         margin:       [0.3, 0.3, 0.3, 0.3],
         filename:     `UAE_Loan_Schedule_${activeFacilityType.toUpperCase()}.pdf`,
         image:        { type: 'jpeg', quality: 0.98 },
-        html2canvas:  { scale: 2, windowWidth: 1024, useCORS: true },
+        html2canvas:  { 
+          scale: 2, 
+          useCORS: true,
+          scrollX: 0,
+          scrollY: 0,
+          windowWidth: 1024
+        },
         jsPDF:        { unit: 'in', format: 'letter', orientation: 'portrait' },
         pagebreak:    { mode: ['avoid-all', 'css', 'legacy'] }
       };
 
-      html2pdf().set(opt).from(element).save();
+      try {
+        await html2pdf().set(opt).from(element).save();
+      } finally {
+        // Restore responsive mobile screen layout
+        element.setAttribute('style', originalStyle);
+        mainGrid.setAttribute('style', originalGridStyle);
+      }
     }
 
     document.querySelectorAll('input, select').forEach(el => el.addEventListener('input', calculate));
