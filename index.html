@@ -59,7 +59,7 @@
         <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
         </svg>
-        Download PDF Quote
+        Download PDF Quote (Customer Copy)
       </button>
     </div>
 
@@ -157,7 +157,7 @@
         </div>
 
         <!-- Results Column -->
-        <div class="bg-slate-100 rounded-xl p-5 flex flex-col justify-between border border-slate-200 pdf-avoid-break">
+        <div id="resultsPanel" class="bg-slate-100 rounded-xl p-5 flex flex-col justify-between border border-slate-200 pdf-avoid-break">
           <div>
             <h2 class="text-lg font-semibold border-b pb-2 mb-4 text-indigo-900">2. Assessment & Eligibility</h2>
 
@@ -477,7 +477,12 @@
     }
 
 async function downloadPDF() {
-  const source = document.getElementById('quoteArea');
+  // Customer-facing quote = ONLY the "Assessment & Eligibility" results
+  // panel (rate, DBR, headroom, max facility, buyout breakup, fees notice).
+  // The applicant's raw inputs (salary, AECB score, etc.), the facility
+  // type toggle, and the full amortization tables are internal/working
+  // detail and are intentionally left out of the downloaded PDF.
+  const source = document.getElementById('resultsPanel');
 
   // Fixed pixel width used for the print-only copy of the quote.
   // Rendering a REAL element at this width (rather than asking html2canvas
@@ -486,9 +491,9 @@ async function downloadPDF() {
   // phone. The old windowWidth-based approach shifted/cropped content on
   // wide desktop viewports because html2canvas's internal offset math is
   // based on the *real* window size, not just the width option.
-  const PDF_RENDER_WIDTH = 760;
+  const PDF_RENDER_WIDTH = 480;
 
-  // 1. Build a fully detached, off-screen host and clone the quote into it.
+  // 1. Build a fully detached, off-screen host and clone the results panel into it.
   const printHost = document.createElement('div');
   printHost.id = 'pdfPrintHost';
   printHost.style.position = 'fixed';
@@ -500,70 +505,73 @@ async function downloadPDF() {
   printHost.style.opacity = '0';       // invisible to the user
   printHost.style.pointerEvents = 'none';
 
+  // Wrapper adds a simple customer-facing header, since the results panel
+  // on its own no longer carries the app's title/branding bar with it.
+  const wrapper = document.createElement('div');
+  wrapper.id = 'quotePrintClone';
+  wrapper.style.width = PDF_RENDER_WIDTH + 'px';
+  wrapper.style.maxWidth = PDF_RENDER_WIDTH + 'px';
+  wrapper.style.margin = '0';
+  wrapper.style.padding = '20px';
+  wrapper.style.boxSizing = 'border-box';
+  wrapper.style.background = '#ffffff';
+  wrapper.style.fontFamily = 'inherit';
+
+  const facilityTitle = activeFacilityType === 'buyout'
+    ? 'Liability Buyout / Consolidation Quote'
+    : 'Fresh Personal Loan Quote';
+  const tenureMonths = document.getElementById('tenure').value;
+
+  const header = document.createElement('div');
+  header.style.marginBottom = '16px';
+  header.style.paddingBottom = '12px';
+  header.style.borderBottom = '2px solid #312e81';
+  header.innerHTML = `
+    <div style="font-size:18px;font-weight:800;color:#312e81;">${facilityTitle}</div>
+    <div style="font-size:11px;color:#64748b;margin-top:2px;">Tenure: ${tenureMonths} Months &nbsp;•&nbsp; Indicative quote, subject to bank approval</div>
+  `;
+  wrapper.appendChild(header);
+
   const clone = source.cloneNode(true);
-  clone.id = 'quoteAreaPrintClone';
-  clone.style.width = PDF_RENDER_WIDTH + 'px';
-  clone.style.maxWidth = PDF_RENDER_WIDTH + 'px';
+  clone.id = 'resultsPanelPrintClone';
+  clone.style.width = '100%';
   clone.style.margin = '0';
-  clone.style.padding = '16px';
   clone.style.boxSizing = 'border-box';
   clone.style.overflow = 'visible';
   clone.style.boxShadow = 'none';
+  clone.classList.remove('flex', 'justify-between');
+  wrapper.appendChild(clone);
 
-  // Hide interactive-only elements (facility toggle buttons)
-  clone.querySelectorAll('.no-print').forEach(el => el.style.display = 'none');
+  // Simple footer with a generation timestamp for the customer's copy.
+  const footer = document.createElement('div');
+  footer.style.marginTop = '14px';
+  footer.style.paddingTop = '10px';
+  footer.style.borderTop = '1px solid #e2e8f0';
+  footer.style.fontSize = '9px';
+  footer.style.color = '#94a3b8';
+  footer.style.textAlign = 'center';
+  footer.innerText = `Generated on ${new Date().toLocaleDateString()}`;
+  wrapper.appendChild(footer);
 
-  // Convert live form inputs/selects to plain text so values print cleanly
-  clone.querySelectorAll('input, select').forEach(input => {
-    const valDisplay = document.createElement('div');
-    valDisplay.className = 'font-bold text-slate-900 text-xs py-1 border-b border-slate-300';
-
-    if (input.tagName === 'SELECT') {
-      valDisplay.innerText = input.options[input.selectedIndex]?.text || input.value;
-    } else if (input.type === 'range') {
-      valDisplay.style.display = 'none';
-    } else {
-      valDisplay.innerText = input.value ? input.value : '-';
-    }
-
-    input.parentNode.insertBefore(valDisplay, input);
-    input.remove();
-  });
-
-  // Keep the 2-column grid side-by-side at this fixed width
-  const mainGrid = clone.querySelector('#mainGrid');
-  if (mainGrid) {
-    mainGrid.style.display = 'grid';
-    mainGrid.style.gridTemplateColumns = '1fr 1fr';
-    mainGrid.style.gap = '1rem';
-    mainGrid.style.width = '100%';
-  }
-
-  // Force every table to a fixed layout that respects the container width,
-  // so 5-column tables scale down to fit instead of overflowing the page.
-  clone.querySelectorAll('table').forEach(table => {
+  // Force every table inside the panel (none expected today, but future-proof)
+  // to a fixed layout that respects the container width.
+  wrapper.querySelectorAll('table').forEach(table => {
     table.style.width = '100%';
     table.style.tableLayout = 'fixed';
     table.style.wordBreak = 'break-word';
   });
-  clone.querySelectorAll('table td, table th').forEach(cell => {
+  wrapper.querySelectorAll('table td, table th').forEach(cell => {
     cell.style.wordBreak = 'break-word';
     cell.style.overflowWrap = 'break-word';
     cell.style.whiteSpace = 'normal';
   });
 
-  // Horizontal-scroll wrappers must not clip content in the static render
-  clone.querySelectorAll('.overflow-x-auto').forEach(el => {
-    el.style.overflow = 'visible';
-    el.style.width = '100%';
-  });
-
-  printHost.appendChild(clone);
+  printHost.appendChild(wrapper);
   document.body.appendChild(printHost);
 
   const opt = {
-    margin:       [0.35, 0.3, 0.35, 0.3],
-    filename:     `UAE_Loan_Schedule_${activeFacilityType.toUpperCase()}.pdf`,
+    margin:       [0.3, 0.3, 0.3, 0.3],
+    filename:     `UAE_Loan_Quote_${activeFacilityType.toUpperCase()}.pdf`,
     image:        { type: 'jpeg', quality: 0.98 },
     html2canvas:  {
       scale: 2,
@@ -581,7 +589,7 @@ async function downloadPDF() {
   try {
     // 2. Render the detached, fixed-width clone — not the live element —
     //    so desktop and mobile always capture identically.
-    await html2pdf().set(opt).from(clone).save();
+    await html2pdf().set(opt).from(wrapper).save();
   } catch (err) {
     console.error('PDF generation error:', err);
     alert('Sorry, something went wrong generating the PDF. Please try again.');
