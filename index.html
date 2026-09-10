@@ -16,6 +16,34 @@
       page-break-inside: avoid !important;
       break-inside: avoid !important;
     }
+
+    /* Fallback styling if someone uses the browser's native
+       Ctrl+P / "Print to PDF" instead of the Download PDF button. */
+    @media print {
+      body {
+        background: #fff !important;
+        padding: 0 !important;
+      }
+      .no-print {
+        display: none !important;
+      }
+      #quoteArea {
+        width: 100% !important;
+        max-width: 100% !important;
+      }
+      table {
+        table-layout: fixed !important;
+        width: 100% !important;
+      }
+      table td, table th {
+        word-break: break-word !important;
+        overflow-wrap: break-word !important;
+        white-space: normal !important;
+      }
+      .overflow-x-auto {
+        overflow: visible !important;
+      }
+    }
   </style>
 </head>
 <body class="bg-slate-50 text-slate-800 font-sans p-4 md:p-8">
@@ -451,16 +479,22 @@
 async function downloadPDF() {
   const element = document.getElementById('quoteArea');
 
+  // This must match the width we force the cloned #quoteArea to below.
+  // Keeping windowWidth and the element's own width in sync is what stops
+  // html2canvas from clipping/slicing columns off the sides.
+  const PDF_RENDER_WIDTH = 760;
+
   const opt = {
-    margin:       [0.4, 0.4, 0.4, 0.4],
+    margin:       [0.35, 0.3, 0.35, 0.3],
     filename:     `UAE_Loan_Schedule_${activeFacilityType.toUpperCase()}.pdf`,
     image:        { type: 'jpeg', quality: 0.98 },
-    html2canvas:  { 
-      scale: 2, 
+    html2canvas:  {
+      scale: 2,
       useCORS: true,
       scrollX: 0,
       scrollY: 0,
-      windowWidth: 1024,
+      windowWidth: PDF_RENDER_WIDTH,
+      width: PDF_RENDER_WIDTH,
       logging: false,
       onclone: (clonedDoc) => {
         // Hide interactive elements marked as no-print
@@ -470,7 +504,7 @@ async function downloadPDF() {
         clonedDoc.querySelectorAll('input, select').forEach(input => {
           const valDisplay = clonedDoc.createElement('div');
           valDisplay.className = 'font-bold text-slate-900 text-xs py-1 border-b border-slate-300';
-          
+
           if (input.tagName === 'SELECT') {
             valDisplay.innerText = input.options[input.selectedIndex]?.text || input.value;
           } else if (input.type === 'range') {
@@ -478,18 +512,48 @@ async function downloadPDF() {
           } else {
             valDisplay.innerText = input.value ? input.value : '-';
           }
-          
+
           input.parentNode.insertBefore(valDisplay, input);
           input.remove();
         });
 
-        // Set container width specifically for A4 printable area (~710px)
+        // Strip anything on <body> / outer wrapper that could clip or
+        // offset the content (padding, centering, rounded+overflow:hidden
+        // card chrome). Only #quoteArea's own box should define the page.
+        const body = clonedDoc.body;
+        body.style.margin = '0';
+        body.style.padding = '0';
+        body.style.width = PDF_RENDER_WIDTH + 'px';
+        body.style.minWidth = PDF_RENDER_WIDTH + 'px';
+        body.style.overflow = 'visible';
+        body.style.background = '#ffffff';
+
+        const outerCard = element.parentElement
+          ? clonedDoc.getElementById(element.parentElement.id) || element.parentElement
+          : null;
+
+        // Walk up from #quoteArea and neutralize any ancestor that limits
+        // width, centers with auto margins, or hides overflow.
+        let node = clonedDoc.getElementById('quoteArea');
+        let ancestor = node ? node.parentElement : null;
+        while (ancestor && ancestor !== body) {
+          ancestor.style.maxWidth = 'none';
+          ancestor.style.width = PDF_RENDER_WIDTH + 'px';
+          ancestor.style.margin = '0';
+          ancestor.style.overflow = 'visible';
+          ancestor.style.boxShadow = 'none';
+          ancestor = ancestor.parentElement;
+        }
+
+        // Set container width specifically for the PDF render area
         const container = clonedDoc.getElementById('quoteArea');
         if (container) {
-          container.style.width = '710px';
-          container.style.padding = '0px';
-          container.style.margin = '0 auto';
+          container.style.width = PDF_RENDER_WIDTH + 'px';
+          container.style.maxWidth = PDF_RENDER_WIDTH + 'px';
+          container.style.padding = '16px';
+          container.style.margin = '0';
           container.style.boxSizing = 'border-box';
+          container.style.overflow = 'visible';
         }
 
         // Maintain 2-column side-by-side grid layout
@@ -500,6 +564,27 @@ async function downloadPDF() {
           mainGrid.style.gap = '1rem';
           mainGrid.style.width = '100%';
         }
+
+        // Force every table (yearly + monthly schedules) to a fixed layout
+        // that respects the container width instead of overflowing it.
+        // This is what was causing the sliced-off "AED xx,xxx" columns.
+        clonedDoc.querySelectorAll('table').forEach(table => {
+          table.style.width = '100%';
+          table.style.tableLayout = 'fixed';
+          table.style.wordBreak = 'break-word';
+        });
+        clonedDoc.querySelectorAll('table td, table th').forEach(cell => {
+          cell.style.wordBreak = 'break-word';
+          cell.style.overflowWrap = 'break-word';
+          cell.style.whiteSpace = 'normal';
+        });
+
+        // Any horizontal-scroll wrappers around tables must not clip;
+        // on screen these scroll, but for the PDF everything must be visible.
+        clonedDoc.querySelectorAll('.overflow-x-auto').forEach(el => {
+          el.style.overflow = 'visible';
+          el.style.width = '100%';
+        });
       }
     },
     jsPDF:        { unit: 'in', format: 'a4', orientation: 'portrait' },
@@ -510,6 +595,7 @@ async function downloadPDF() {
     await html2pdf().set(opt).from(element).save();
   } catch (err) {
     console.error('PDF generation error:', err);
+    alert('Sorry, something went wrong generating the PDF. Please try again.');
   }
 }
 
