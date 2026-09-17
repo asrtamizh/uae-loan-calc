@@ -229,11 +229,11 @@
 <div class="container">
   <header>
     <h1>UAE Personal Loan & Buyout Calculator</h1>
-    <p>Salary Multiplier Cap | Disbursal Upfront Fees | Total Interest & EMI Schedule Download</p>
+    <p>Salary Multiplier Cap | Disbursal Fees | Interest Breakdown & CSV Schedule Export</p>
   </header>
 
   <div class="grid-layout">
-    <!-- LEFT COLUMN: INPUTS -->
+    <!-- INPUT SECTION -->
     <div class="card">
       <div class="card-header">
         <span>1. Applicant & Loan Parameters</span>
@@ -259,33 +259,33 @@
       <div class="form-row">
         <div class="form-group">
           <label for="salary">Monthly Gross Salary (AED)</label>
-          <input type="number" id="salary" value="25000" oninput="calculateLoan();">
+          <input type="number" id="salary" value="25000" min="0" oninput="calculateLoan();">
         </div>
         <div class="form-group">
           <label for="multiplier">Salary Multiplier Cap (x)</label>
-          <input type="number" id="multiplier" value="20" step="0.5" oninput="calculateLoan();">
+          <input type="number" id="multiplier" value="20" step="0.5" min="1" oninput="calculateLoan();">
         </div>
       </div>
 
       <div class="form-row">
         <div class="form-group">
           <label for="aecbScore">AECB Credit Score</label>
-          <input type="number" id="aecbScore" value="725" oninput="calculateLoan();">
+          <input type="number" id="aecbScore" value="725" min="300" max="900" oninput="calculateLoan();">
         </div>
         <div class="form-group">
           <label for="tenure">Tenure (Months)</label>
-          <input type="number" id="tenure" value="48" oninput="calculateLoan();">
+          <input type="number" id="tenure" value="48" min="1" max="60" oninput="calculateLoan();">
         </div>
       </div>
 
       <div class="form-row">
         <div class="form-group">
           <label for="procFee">Processing Fee (%)</label>
-          <input type="number" id="procFee" value="1.0" step="0.1" oninput="calculateLoan();">
+          <input type="number" id="procFee" value="1.0" step="0.1" min="0" oninput="calculateLoan();">
         </div>
         <div class="form-group">
           <label for="takaful">Takaful Insurance (%)</label>
-          <input type="number" id="takaful" value="1.0" step="0.1" oninput="calculateLoan();">
+          <input type="number" id="takaful" value="1.0" step="0.1" min="0" oninput="calculateLoan();">
         </div>
       </div>
 
@@ -306,11 +306,11 @@
         <div class="form-row">
           <div class="form-group">
             <label for="buyoutLoan">Buyout Loan Outstanding (AED)</label>
-            <input type="number" id="buyoutLoan" value="50000" oninput="calculateLoan();">
+            <input type="number" id="buyoutLoan" value="50000" min="0" oninput="calculateLoan();">
           </div>
           <div class="form-group">
             <label for="buyoutCard">Buyout Credit Cards Settle (AED)</label>
-            <input type="number" id="buyoutCard" value="15000" oninput="calculateLoan();">
+            <input type="number" id="buyoutCard" value="15000" min="0" oninput="calculateLoan();">
           </div>
         </div>
       </div>
@@ -321,16 +321,16 @@
       <div class="form-row">
         <div class="form-group">
           <label for="retainedCard">Non-Buyout Card Limits (AED)</label>
-          <input type="number" id="retainedCard" value="10000" oninput="calculateLoan();">
+          <input type="number" id="retainedCard" value="10000" min="0" oninput="calculateLoan();">
         </div>
         <div class="form-group">
           <label for="existingEmi">Retained EMIs (Mortgage/Auto)</label>
-          <input type="number" id="existingEmi" value="1000" oninput="calculateLoan();">
+          <input type="number" id="existingEmi" value="1000" min="0" oninput="calculateLoan();">
         </div>
       </div>
     </div>
 
-    <!-- RIGHT COLUMN: RESULTS -->
+    <!-- RESULTS SECTION -->
     <div class="card">
       <div class="card-header">
         <span>2. Eligibility & Assessment Results</span>
@@ -416,11 +416,11 @@
       </div>
     </div>
 
-    <!-- FULL WIDTH: AMORTIZATION SCHEDULE -->
+    <!-- SCHEDULE SECTION -->
     <div class="card full-width">
       <div class="card-header">
         <span>3. Complete Amortization Schedule</span>
-        <button class="btn-download" onclick="downloadScheduleCSV();">Download Schedule (CSV)</button>
+        <button type="button" class="btn-download" onclick="downloadScheduleCSV();">Download Schedule (CSV)</button>
       </div>
       <div class="schedule-container">
         <table>
@@ -434,9 +434,7 @@
               <th>Ending Balance</th>
             </tr>
           </thead>
-          <tbody id="scheduleBody">
-            <!-- Dynamic Schedule Rows -->
-          </tbody>
+          <tbody id="scheduleBody"></tbody>
         </table>
       </div>
     </div>
@@ -446,20 +444,29 @@
 <script>
 let currentSchedule = [];
 
+function getVal(id) {
+  const el = document.getElementById(id);
+  if (!el) return 0;
+  const val = parseFloat(el.value);
+  return isNaN(val) ? 0 : val;
+}
+
 function fmt(val) {
-  return "AED " + Number(val).toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2});
+  return "AED " + Number(val || 0).toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2});
 }
 
 function fmtPct(val) {
-  return (val * 100).toFixed(2) + "%";
+  return ((val || 0) * 100).toFixed(2) + "%";
 }
 
 function toggleBuyoutFields() {
-  const type = document.getElementById('facilityType').value;
+  const typeEl = document.getElementById('facilityType');
   const buyoutSec = document.getElementById('buyoutSection');
   const buyoutSettleRow = document.getElementById('buyoutSettleRow');
 
-  if (type === 'Liability Buyout') {
+  if (!typeEl || !buyoutSec || !buyoutSettleRow) return;
+
+  if (typeEl.value === 'Liability Buyout') {
     buyoutSec.style.display = 'block';
     buyoutSettleRow.style.display = 'flex';
   } else {
@@ -469,22 +476,22 @@ function toggleBuyoutFields() {
 }
 
 function calculateLoan() {
-  const facilityType = document.getElementById('facilityType').value;
-  const category = document.getElementById('customerCategory').value;
-  const salary = parseFloat(document.getElementById('salary').value) || 0;
-  const multiplier = parseFloat(document.getElementById('multiplier').value) || 0;
-  const aecbScore = parseFloat(document.getElementById('aecbScore').value) || 0;
-  const months = parseInt(document.getElementById('tenure').value) || 1;
-  const gpDays = parseInt(document.getElementById('gpDays').value) || 0;
-  const procFeePct = parseFloat(document.getElementById('procFee').value) || 0;
-  const takafulPct = parseFloat(document.getElementById('takaful').value) || 0;
+  const facilityType = document.getElementById('facilityType')?.value || 'Fresh Loan';
+  const category = document.getElementById('customerCategory')?.value || 'Expatriate';
+  const salary = getVal('salary');
+  const multiplier = getVal('multiplier');
+  const aecbScore = getVal('aecbScore');
+  const months = Math.max(1, parseInt(getVal('tenure')) || 1);
+  const gpDays = parseInt(getVal('gpDays')) || 0;
+  const procFeePct = getVal('procFee');
+  const takafulPct = getVal('takaful');
 
-  const buyoutLoan = parseFloat(document.getElementById('buyoutLoan').value) || 0;
-  const buyoutCard = parseFloat(document.getElementById('buyoutCard').value) || 0;
-  const retainedCard = parseFloat(document.getElementById('retainedCard').value) || 0;
-  const existingEmi = parseFloat(document.getElementById('existingEmi').value) || 0;
+  const buyoutLoan = getVal('buyoutLoan');
+  const buyoutCard = getVal('buyoutCard');
+  const retainedCard = getVal('retainedCard');
+  const existingEmi = getVal('existingEmi');
 
-  // 1. Base Rate Matrix
+  // 1. Base Rate Calculation
   let baseRate = 0;
   if (category === 'UAE National') {
     if (salary < 10000) baseRate = 0.1235;
@@ -500,34 +507,31 @@ function calculateLoan() {
     else baseRate = 0.0565;
   }
 
-  // 2. AECB Discount
+  // 2. AECB Discount & Rates
   const aecbDiscount = (aecbScore > 711) ? -0.0025 : 0.0;
   const finalRate = Math.max(0.001, baseRate + aecbDiscount);
   const monthlyRate = finalRate / 12;
 
-  // 3. Maximum Eligible Loan Facility = Salary * Multiplier
+  // 3. Max Loan & Upfront Fees
   const maxEligibleLoan = salary * multiplier;
-
-  // 4. Processing Fees & Takaful charged on Loan Disbursal Amount
   const procFeeAed = maxEligibleLoan * (procFeePct / 100);
   const takafulAed = maxEligibleLoan * (takafulPct / 100);
   const totalUpfrontFees = procFeeAed + takafulAed;
 
-  // 5. Grace Period Accrued Interest (Actual/365) on Disbursal Amount
+  // 4. Grace Period & Adjusted Principal
   const gpProfit = maxEligibleLoan * finalRate * (gpDays / 365);
   const adjustedPrincipal = maxEligibleLoan + gpProfit;
 
-  // 6. Monthly EMI Calculation
+  // 5. EMI & Total Interest
   let emi = 0;
   if (adjustedPrincipal > 0 && monthlyRate > 0 && months > 0) {
     emi = adjustedPrincipal * (monthlyRate * Math.pow(1 + monthlyRate, months)) / (Math.pow(1 + monthlyRate, months) - 1);
   }
 
-  // Total Interest & Repayment
   const totalRepayment = emi * months;
   const totalInterest = Math.max(0, totalRepayment - adjustedPrincipal);
 
-  // 7. DBR Headroom & Compliance Check
+  // 6. DBR Compliance Check
   const maxDbr = salary * 0.50;
   const retainedCardCommitment = retainedCard * 0.05;
   const totalRetained = retainedCardCommitment + existingEmi;
@@ -535,43 +539,51 @@ function calculateLoan() {
   const totalDbrPct = salary > 0 ? ((totalRetained + emi) / salary) * 100 : 0;
 
   const dbrBadge = document.getElementById('dbrBadge');
-  if (emi <= headroom) {
-    dbrBadge.className = "badge badge-success";
-    dbrBadge.innerText = `DBR COMPLIANT (${totalDbrPct.toFixed(1)}%)`;
-  } else {
-    dbrBadge.className = "badge badge-danger";
-    dbrBadge.innerText = `EXCEEDS DBR (${totalDbrPct.toFixed(1)}%)`;
+  if (dbrBadge) {
+    if (emi <= headroom) {
+      dbrBadge.className = "badge badge-success";
+      dbrBadge.innerText = `DBR COMPLIANT (${totalDbrPct.toFixed(1)}%)`;
+    } else {
+      dbrBadge.className = "badge badge-danger";
+      dbrBadge.innerText = `EXCEEDS DBR (${totalDbrPct.toFixed(1)}%)`;
+    }
   }
 
-  // 8. Net Disbursed In-Hand Cash
+  // 7. Net Cash Disbursed
   const totalBuyoutSettlement = (facilityType === 'Liability Buyout') ? (buyoutLoan + buyoutCard) : 0;
   const netInHand = Math.max(0, maxEligibleLoan - totalUpfrontFees - totalBuyoutSettlement);
 
-  // Update UI Output
-  document.getElementById('resBaseRate').innerText = fmtPct(baseRate);
-  document.getElementById('resAecbDiscount').innerText = fmtPct(aecbDiscount);
-  document.getElementById('resFinalRate').innerText = fmtPct(finalRate);
-  document.getElementById('resMaxEligible').innerText = fmt(maxEligibleLoan);
-  document.getElementById('resProcFeeAed').innerText = fmt(procFeeAed);
-  document.getElementById('resTakafulAed').innerText = fmt(takafulAed);
-  document.getElementById('resTotalUpfrontFees').innerText = fmt(totalUpfrontFees);
-  document.getElementById('resGpProfit').innerText = fmt(gpProfit);
-  document.getElementById('resAdjustedPrincipal').innerText = fmt(adjustedPrincipal);
-  document.getElementById('resTotalInterest').innerText = fmt(totalInterest);
-  document.getElementById('resTotalRepayment').innerText = fmt(totalRepayment);
-  document.getElementById('resMaxDbr').innerText = fmt(maxDbr);
-  document.getElementById('resRetained').innerText = fmt(totalRetained);
-  document.getElementById('resHeadroom').innerText = fmt(headroom);
-  document.getElementById('resEmi').innerText = fmt(emi);
-  document.getElementById('resBuyoutSettle').innerText = fmt(totalBuyoutSettlement);
-  document.getElementById('resInHand').innerText = fmt(netInHand);
+  // Update DOM Output safely
+  const setTxt = (id, val) => {
+    const element = document.getElementById(id);
+    if (element) element.innerText = val;
+  };
 
-  // 9. Generate Amortization Schedule
+  setTxt('resBaseRate', fmtPct(baseRate));
+  setTxt('resAecbDiscount', fmtPct(aecbDiscount));
+  setTxt('resFinalRate', fmtPct(finalRate));
+  setTxt('resMaxEligible', fmt(maxEligibleLoan));
+  setTxt('resProcFeeAed', fmt(procFeeAed));
+  setTxt('resTakafulAed', fmt(takafulAed));
+  setTxt('resTotalUpfrontFees', fmt(totalUpfrontFees));
+  setTxt('resGpProfit', fmt(gpProfit));
+  setTxt('resAdjustedPrincipal', fmt(adjustedPrincipal));
+  setTxt('resTotalInterest', fmt(totalInterest));
+  setTxt('resTotalRepayment', fmt(totalRepayment));
+  setTxt('resMaxDbr', fmt(maxDbr));
+  setTxt('resRetained', fmt(totalRetained));
+  setTxt('resHeadroom', fmt(headroom));
+  setTxt('resEmi', fmt(emi));
+  setTxt('resBuyoutSettle', fmt(totalBuyoutSettlement));
+  setTxt('resInHand', fmt(netInHand));
+
+  // 8. Generate Amortization Table
   generateSchedule(adjustedPrincipal, finalRate, emi, months);
 }
 
 function generateSchedule(principal, annualRate, emi, months) {
   const tbody = document.getElementById('scheduleBody');
+  if (!tbody) return;
   tbody.innerHTML = '';
   currentSchedule = [];
 
@@ -581,4 +593,61 @@ function generateSchedule(principal, annualRate, emi, months) {
   for (let m = 1; m <= months; m++) {
     if (balance <= 0) break;
 
-    const interestPaid = Math.round((balance * 
+    const interestPaid = Math.round((balance * monthlyRate) * 100) / 100;
+    let principalPaid = Math.round((emi - interestPaid) * 100) / 100;
+
+    if (m === months || balance - principalPaid < 0) {
+      principalPaid = balance;
+    }
+
+    const endBalance = Math.max(0, Math.round((balance - principalPaid) * 100) / 100);
+
+    currentSchedule.push({
+      month: m,
+      beginning: balance.toFixed(2),
+      emi: emi.toFixed(2),
+      principal: principalPaid.toFixed(2),
+      interest: interestPaid.toFixed(2),
+      ending: endBalance.toFixed(2)
+    });
+
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td>${m}</td>
+      <td>${fmt(balance)}</td>
+      <td>${fmt(emi)}</td>
+      <td>${fmt(principalPaid)}</td>
+      <td>${fmt(interestPaid)}</td>
+      <td>${fmt(endBalance)}</td>
+    `;
+    tbody.appendChild(tr);
+
+    balance = endBalance;
+  }
+}
+
+function downloadScheduleCSV() {
+  if (!currentSchedule || currentSchedule.length === 0) return;
+
+  let csv = "Month,Beginning Balance (AED),Monthly EMI (AED),Principal Paid (AED),Interest Paid (AED),Ending Balance (AED)\n";
+  currentSchedule.forEach(row => {
+    csv += `${row.month},${row.beginning},${row.emi},${row.principal},${row.interest},${row.ending}\n`;
+  });
+
+  const encodedUri = "data:text/csv;charset=utf-8," + encodeURIComponent(csv);
+  const link = document.createElement("a");
+  link.setAttribute("href", encodedUri);
+  link.setAttribute("download", "loan_amortization_schedule.csv");
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+}
+
+// Guaranteed DOM Ready Execution
+document.addEventListener('DOMContentLoaded', () => {
+  toggleBuyoutFields();
+  calculateLoan();
+});
+</script>
+</body>
+</html>
