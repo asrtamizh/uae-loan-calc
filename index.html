@@ -13,6 +13,7 @@
       --border-color: #e2e8f0;
       --primary: #1e293b;
       --accent: #2563eb;
+      --accent-hover: #1d4ed8;
       --success-bg: #dcfce7;
       --success-text: #14532d;
       --warning-bg: #fef3c7;
@@ -172,6 +173,22 @@
     .badge-success { background: var(--success-bg); color: var(--success-text); }
     .badge-danger { background: var(--danger-bg); color: var(--danger-text); }
 
+    .btn-download {
+      background-color: var(--accent);
+      color: #ffffff;
+      border: none;
+      padding: 8px 14px;
+      border-radius: 6px;
+      font-size: 0.85rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: background-color 0.2s;
+    }
+
+    .btn-download:hover {
+      background-color: var(--accent-hover);
+    }
+
     .full-width {
       grid-column: 1 / -1;
     }
@@ -212,7 +229,7 @@
 <div class="container">
   <header>
     <h1>UAE Personal Loan & Buyout Calculator</h1>
-    <p>Salary Multiplier Maximum Eligibility | Disbursal Upfront Fees | Grace Period Interest (Actual/365)</p>
+    <p>Salary Multiplier Cap | Disbursal Upfront Fees | Total Interest & EMI Schedule Download</p>
   </header>
 
   <div class="grid-layout">
@@ -361,6 +378,15 @@
         <span class="result-value" id="resAdjustedPrincipal" style="font-weight: 700;">AED 0.00</span>
       </div>
 
+      <div class="result-row" style="background-color: #f1f5f9; padding: 6px 8px; border-radius: 6px; margin: 6px 0;">
+        <span class="result-label" style="font-weight: 700; color: var(--primary);">TOTAL INTEREST / PROFIT PAYABLE</span>
+        <span class="result-value" id="resTotalInterest" style="font-weight: 700; color: #c2410c;">AED 0.00</span>
+      </div>
+      <div class="result-row">
+        <span class="result-label">Total Repayment Amount</span>
+        <span class="result-value" id="resTotalRepayment" style="font-weight: 700;">AED 0.00</span>
+      </div>
+
       <div class="result-row">
         <span class="result-label">CBUAE Max DBR Limit (50% Salary)</span>
         <span class="result-value" id="resMaxDbr">AED 0.00</span>
@@ -394,6 +420,7 @@
     <div class="card full-width">
       <div class="card-header">
         <span>3. Complete Amortization Schedule</span>
+        <button class="btn-download" onclick="downloadScheduleCSV();">Download Schedule (CSV)</button>
       </div>
       <div class="schedule-container">
         <table>
@@ -417,6 +444,8 @@
 </div>
 
 <script>
+let currentSchedule = [];
+
 function fmt(val) {
   return "AED " + Number(val).toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2});
 }
@@ -494,6 +523,10 @@ function calculateLoan() {
     emi = adjustedPrincipal * (monthlyRate * Math.pow(1 + monthlyRate, months)) / (Math.pow(1 + monthlyRate, months) - 1);
   }
 
+  // Total Interest & Repayment
+  const totalRepayment = emi * months;
+  const totalInterest = Math.max(0, totalRepayment - adjustedPrincipal);
+
   // 7. DBR Headroom & Compliance Check
   const maxDbr = salary * 0.50;
   const retainedCardCommitment = retainedCard * 0.05;
@@ -524,6 +557,8 @@ function calculateLoan() {
   document.getElementById('resTotalUpfrontFees').innerText = fmt(totalUpfrontFees);
   document.getElementById('resGpProfit').innerText = fmt(gpProfit);
   document.getElementById('resAdjustedPrincipal').innerText = fmt(adjustedPrincipal);
+  document.getElementById('resTotalInterest').innerText = fmt(totalInterest);
+  document.getElementById('resTotalRepayment').innerText = fmt(totalRepayment);
   document.getElementById('resMaxDbr').innerText = fmt(maxDbr);
   document.getElementById('resRetained').innerText = fmt(totalRetained);
   document.getElementById('resHeadroom').innerText = fmt(headroom);
@@ -538,6 +573,7 @@ function calculateLoan() {
 function generateSchedule(principal, annualRate, emi, months) {
   const tbody = document.getElementById('scheduleBody');
   tbody.innerHTML = '';
+  currentSchedule = [];
 
   let balance = principal;
   const monthlyRate = annualRate / 12;
@@ -545,33 +581,4 @@ function generateSchedule(principal, annualRate, emi, months) {
   for (let m = 1; m <= months; m++) {
     if (balance <= 0) break;
 
-    const interestPaid = Math.round((balance * monthlyRate) * 100) / 100;
-    let principalPaid = Math.round((emi - interestPaid) * 100) / 100;
-    
-    if (m === months || balance - principalPaid < 0) {
-      principalPaid = balance;
-    }
-
-    const endBalance = Math.max(0, Math.round((balance - principalPaid) * 100) / 100);
-
-    const tr = document.createElement('tr');
-    tr.innerHTML = `
-      <td>${m}</td>
-      <td>${fmt(balance)}</td>
-      <td>${fmt(emi)}</td>
-      <td>${fmt(principalPaid)}</td>
-      <td>${fmt(interestPaid)}</td>
-      <td>${fmt(endBalance)}</td>
-    `;
-    tbody.appendChild(tr);
-
-    balance = endBalance;
-  }
-}
-
-// Initial Run
-toggleBuyoutFields();
-calculateLoan();
-</script>
-</body>
-</html>
+    const interestPaid = Math.round((balance * 
