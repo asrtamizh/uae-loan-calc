@@ -3,580 +3,552 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>UAE Loan & Buyout Calculator</title>
-  <link rel="manifest" href="manifest.json">
-  <meta name="theme-color" content="#312e81">
-  <script src="https://cdn.tailwindcss.com"></script>
-  <!-- Client-side Excel export -->
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
-
+  <title>UAE Loan & Buyout Calculator with Grace Period</title>
   <style>
-    /* Prevent unwanted page breaks if the page is ever printed directly */
-    .pdf-avoid-break {
-      page-break-inside: avoid !important;
-      break-inside: avoid !important;
+    :root {
+      --bg-primary: #f8fafc;
+      --card-bg: #ffffff;
+      --text-main: #0f172a;
+      --text-muted: #64748b;
+      --border-color: #e2e8f0;
+      --primary: #1e293b;
+      --accent: #2563eb;
+      --accent-light: #eff6ff;
+      --success-bg: #dcfce7;
+      --success-text: #14532d;
+      --warning-bg: #fef3c7;
+      --warning-text: #78350f;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    }
+
+    body {
+      background-color: var(--bg-primary);
+      color: var(--text-main);
+      padding: 24px;
+      line-height: 1.5;
+    }
+
+    .container {
+      max-width: 1200px;
+      margin: 0 auto;
+    }
+
+    header {
+      background-color: var(--primary);
+      color: #ffffff;
+      padding: 20px 24px;
+      border-radius: 12px;
+      margin-bottom: 24px;
+      text-align: center;
+    }
+
+    header h1 {
+      font-size: 1.5rem;
+      font-weight: 700;
+    }
+
+    header p {
+      font-size: 0.875rem;
+      color: #94a3b8;
+      margin-top: 4px;
+    }
+
+    .grid-layout {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 24px;
+    }
+
+    @media (max-width: 900px) {
+      .grid-layout {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    .card {
+      background: var(--card-bg);
+      border: 1px solid var(--border-color);
+      border-radius: 12px;
+      padding: 20px;
+      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+    }
+
+    .card-header {
+      font-size: 1.1rem;
+      font-weight: 600;
+      padding-bottom: 12px;
+      margin-bottom: 16px;
+      border-bottom: 2px solid var(--border-color);
+      color: var(--primary);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .form-group {
+      margin-bottom: 14px;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .form-group label {
+      font-size: 0.85rem;
+      font-weight: 600;
+      color: var(--text-muted);
+      margin-bottom: 6px;
+    }
+
+    .form-group input, .form-group select {
+      padding: 10px 12px;
+      border: 1px solid var(--border-color);
+      border-radius: 6px;
+      font-size: 0.95rem;
+      color: var(--text-main);
+      outline: none;
+      transition: border-color 0.2s;
+    }
+
+    .form-group input:focus, .form-group select:focus {
+      border-color: var(--accent);
+    }
+
+    .form-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+    }
+
+    .result-row {
+      display: flex;
+      justify-content: space-between;
+      padding: 10px 0;
+      border-bottom: 1px dashed var(--border-color);
+      font-size: 0.9rem;
+    }
+
+    .result-row:last-child {
+      border-bottom: none;
+    }
+
+    .result-label {
+      color: var(--text-muted);
+    }
+
+    .result-value {
+      font-weight: 600;
+    }
+
+    .highlight-box {
+      background-color: var(--warning-bg);
+      color: var(--warning-text);
+      padding: 12px;
+      border-radius: 8px;
+      margin-top: 12px;
+    }
+
+    .success-box {
+      background-color: var(--success-bg);
+      color: var(--success-text);
+      padding: 12px;
+      border-radius: 8px;
+      margin-top: 12px;
+    }
+
+    .full-width {
+      grid-column: 1 / -1;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 12px;
+      font-size: 0.85rem;
+    }
+
+    th, td {
+      padding: 10px 12px;
+      text-align: right;
+      border-bottom: 1px solid var(--border-color);
+    }
+
+    th {
+      background-color: var(--primary);
+      color: #ffffff;
+      font-weight: 600;
+    }
+
+    th:first-child, td:first-child {
+      text-align: center;
+    }
+
+    .schedule-container {
+      max-height: 380px;
+      overflow-y: auto;
+      border: 1px solid var(--border-color);
+      border-radius: 8px;
     }
   </style>
 </head>
-<body class="bg-slate-50 text-slate-800 font-sans p-4 md:p-8">
+<body>
 
-  <div class="max-w-4xl mx-auto bg-white rounded-2xl shadow-xl overflow-hidden border border-slate-200">
-    <!-- Header -->
-    <div class="bg-indigo-900 text-white p-6 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-      <div>
-        <h1 class="text-2xl font-bold">UAE Loan & Buyout Calculator</h1>
-        <p class="text-indigo-200 text-sm mt-1">CBUAE 50% DBR Rules | 2026 Revised Rates</p>
+<div class="container">
+  <header>
+    <h1>UAE Personal Loan & Buyout Calculator</h1>
+    <p>Integrated CBUAE 50% DBR Rules, Capitalized Upfront Fees & Grace Period Interest (Actual/365)</p>
+  </header>
+
+  <div class="grid-layout">
+    <!-- LEFT COLUMN: INPUTS -->
+    <div class="card">
+      <div class="card-header">
+        <span>1. Applicant & Loan Inputs</span>
       </div>
-      <button onclick="downloadExcel()" class="bg-emerald-500 hover:bg-emerald-600 text-white font-medium text-xs md:text-sm px-4 py-2.5 rounded-lg shadow transition flex items-center gap-2">
-        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-        </svg>
-        Download Excel Quote (Customer Copy)
-      </button>
+
+      <div class="form-row">
+        <div class="form-group">
+          <label for="facilityType">Facility Type</label>
+          <select id="facilityType" onchange="toggleBuyoutFields(); calculateLoan();">
+            <option value="Fresh Loan">Fresh Loan</option>
+            <option value="Liability Buyout" selected>Liability Buyout</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label for="customerCategory">Customer Category</label>
+          <select id="customerCategory" onchange="calculateLoan();">
+            <option value="Expatriate" selected>Expatriate</option>
+            <option value="UAE National">UAE National</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="form-row">
+        <div class="form-group">
+          <label for="salary">Monthly Salary (AED)</label>
+          <input type="number" id="salary" value="25000" oninput="calculateLoan();">
+        </div>
+        <div class="form-group">
+          <label for="aecbScore">AECB Credit Score</label>
+          <input type="number" id="aecbScore" value="725" oninput="calculateLoan();">
+        </div>
+      </div>
+
+      <div class="form-row">
+        <div class="form-group">
+          <label for="tenure">Tenure (Months)</label>
+          <input type="number" id="tenure" value="48" oninput="calculateLoan();">
+        </div>
+        <div class="form-group">
+          <label for="gpDays">Grace Period (Days)</label>
+          <select id="gpDays" onchange="calculateLoan();">
+            <option value="0">0 Days</option>
+            <option value="30">30 Days</option>
+            <option value="60">60 Days</option>
+            <option value="90" selected>90 Days</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="form-row">
+        <div class="form-group">
+          <label for="procFee">Processing Fee (%)</label>
+          <input type="number" id="procFee" value="1.0" step="0.1" oninput="calculateLoan();">
+        </div>
+        <div class="form-group">
+          <label for="takaful">Takaful Insurance (%)</label>
+          <input type="number" id="takaful" value="1.0" step="0.1" oninput="calculateLoan();">
+        </div>
+      </div>
+
+      <div id="buyoutSection">
+        <div class="card-header" style="margin-top: 12px; font-size: 0.95rem;">
+          <span>Buyout Debt Settlement Inputs</span>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label for="buyoutLoan">Buyout Loan Principal (AED)</label>
+            <input type="number" id="buyoutLoan" value="50000" oninput="calculateLoan();">
+          </div>
+          <div class="form-group">
+            <label for="buyoutCard">Buyout Credit Cards (AED)</label>
+            <input type="number" id="buyoutCard" value="15000" oninput="calculateLoan();">
+          </div>
+        </div>
+      </div>
+
+      <div class="card-header" style="margin-top: 12px; font-size: 0.95rem;">
+        <span>Retained Existing Commitments</span>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label for="retainedCard">Non-Buyout Card Limits (AED)</label>
+          <input type="number" id="retainedCard" value="10000" oninput="calculateLoan();">
+        </div>
+        <div class="form-group">
+          <label for="existingEmi">Retained EMIs (Auto/Mortgage)</label>
+          <input type="number" id="existingEmi" value="1000" oninput="calculateLoan();">
+        </div>
+      </div>
     </div>
 
-    <!-- Printable Content Area -->
-    <div id="quoteArea" class="p-6 bg-white">
-      
-      <!-- Facility Type Selector -->
-      <div class="mb-6 bg-slate-100 p-1.5 rounded-xl flex gap-2 border border-slate-200 no-print">
-        <button id="typeFreshBtn" onclick="setFacilityType('fresh')" class="flex-1 py-2.5 rounded-lg font-semibold text-sm transition bg-indigo-900 text-white shadow">
-          Fresh Personal Loan
-        </button>
-        <button id="typeBuyoutBtn" onclick="setFacilityType('buyout')" class="flex-1 py-2.5 rounded-lg font-semibold text-sm transition bg-transparent text-slate-600 hover:text-slate-900">
-          Liability Buyout / Consolidation
-        </button>
+    <!-- RIGHT COLUMN: RESULTS -->
+    <div class="card">
+      <div class="card-header">
+        <span>2. Eligibility & Assessment Results</span>
       </div>
 
-      <div id="mainGrid" class="grid grid-cols-1 md:grid-cols-2 gap-6 pdf-avoid-break">
-        <!-- Inputs Column -->
-        <div class="space-y-4">
-          <h2 class="text-lg font-semibold border-b pb-2 text-indigo-900">1. Applicant & Financial Details</h2>
-          
-          <div>
-            <label class="block text-sm font-medium mb-1">Customer Category</label>
-            <select id="category" class="w-full border rounded-lg p-2.5 bg-slate-50">
-              <option value="expat">Expatriate</option>
-              <option value="national">UAE National</option>
-            </select>
-          </div>
+      <div class="result-row">
+        <span class="result-label">Base Applicable Rate</span>
+        <span class="result-value" id="resBaseRate">0.00%</span>
+      </div>
+      <div class="result-row">
+        <span class="result-label">AECB Discount (>711)</span>
+        <span class="result-value" id="resAecbDiscount">0.00%</span>
+      </div>
+      <div class="result-row">
+        <span class="result-label">Final Annual Profit Rate</span>
+        <span class="result-value" id="resFinalRate" style="color: var(--accent);">0.00%</span>
+      </div>
+      <div class="result-row">
+        <span class="result-label">Max DBR Limit (50% Salary)</span>
+        <span class="result-value" id="resMaxDbr">AED 0.00</span>
+      </div>
+      <div class="result-row">
+        <span class="result-label">Retained Commitments (EMI + 5% Cards)</span>
+        <span class="result-value" id="resRetained">AED 0.00</span>
+      </div>
+      <div class="result-row">
+        <span class="result-label">Monthly EMI Headroom</span>
+        <span class="result-value" id="resHeadroom">AED 0.00</span>
+      </div>
 
-          <div>
-            <label class="block text-sm font-medium mb-1">Monthly Gross Salary (AED)</label>
-            <input type="number" id="salary" value="25000" class="w-full border rounded-lg p-2.5 bg-slate-50">
-          </div>
+      <div class="result-row" style="margin-top: 10px;">
+        <span class="result-label">Max Capacity from DBR</span>
+        <span class="result-value" id="resDbrCapacity">AED 0.00</span>
+      </div>
+      <div class="result-row">
+        <span class="result-label">Max Capacity from Salary Multiplier (20x)</span>
+        <span class="result-value" id="resSalaryCap">AED 0.00</span>
+      </div>
 
-          <!-- SALARY MULTIPLIER CAP INPUT -->
-          <div>
-            <label class="block text-sm font-medium mb-1">Max Salary Multiplier Cap (e.g., 20x)</label>
-            <input type="number" id="salaryMultiplier" value="20" min="1" max="30" step="1" class="w-full border rounded-lg p-2.5 bg-slate-50" placeholder="e.g. 20 for 20 times salary">
-            <p class="text-xs text-slate-500 mt-1">Standard CBUAE rule is 20x gross salary. Lower if customer restricted.</p>
-          </div>
-
-          <!-- ADDITIONAL PROFIT RATE / MARGIN INPUT -->
-          <div>
-            <label class="block text-sm font-medium mb-1">Additional Profit Rate Margin (+%)</label>
-            <input type="number" id="extraRate" value="0" min="0" max="20" step="0.25" class="w-full border rounded-lg p-2.5 bg-slate-50" placeholder="e.g. 3 for +3% extra rate">
-            <p class="text-xs text-slate-500 mt-1">Adds extra rate percentage on top of base rack rate.</p>
-          </div>
-
-          <!-- AECB SCORE INPUT -->
-          <div>
-            <label class="block text-sm font-medium mb-1">AECB Score (Credit Bureau Score)</label>
-            <input type="number" id="aecbScore" placeholder="e.g., 725 (Leave blank if No Score)" min="300" max="900" class="w-full border rounded-lg p-2.5 bg-slate-50">
-            <p id="aecbStatusText" class="text-xs mt-1 font-medium text-slate-500">Standard rate applied (Score > 711 gets 0.25% discount)</p>
-          </div>
-
-          <!-- BUYOUT SPECIFIC INPUTS -->
-          <div id="buyoutFields" class="hidden space-y-4 bg-amber-50/60 p-3.5 rounded-xl border border-amber-200">
-            <p class="text-xs font-bold text-amber-800 uppercase tracking-wide">Liabilities to Buy Out (Take Over)</p>
-            
-            <div>
-              <label class="block text-xs font-medium mb-1">Personal Loan Outstanding to Settle (AED)</label>
-              <input type="number" id="buyoutLoan" value="50000" class="w-full border rounded-lg p-2 bg-white">
-            </div>
-
-            <div>
-              <label class="block text-xs font-medium mb-1">Credit Card Outstanding to Settle (AED)</label>
-              <input type="number" id="buyoutCard" value="15000" class="w-full border rounded-lg p-2 bg-white">
-            </div>
-          </div>
-
-          <!-- NON-BUYOUT COMMITMENTS -->
-          <div>
-            <label class="block text-sm font-medium mb-1">Total Credit Card Limits (Non-Buyout) (AED)</label>
-            <input type="number" id="cards" value="20000" class="w-full border rounded-lg p-2.5 bg-slate-50">
-            <p class="text-xs text-slate-500 mt-1">5% (AED <span id="cardCommitmentText">1,000</span>) counts toward DBR</p>
-          </div>
-
-          <div>
-            <label class="block text-sm font-medium mb-1">Auto Loan, Mortgage & Personal Finance EMIs (AED)</label>
-            <input type="number" id="existingEmi" value="1000" class="w-full border rounded-lg p-2.5 bg-slate-50">
-            <p class="text-[11px] text-amber-700 mt-0.5">⚠️ Mortgages, Auto Loans & existing Personal Finance EMIs count towards DBR.</p>
-          </div>
-
-          <!-- TENURE SLIDER -->
-          <div>
-            <div class="flex justify-between items-center mb-1">
-              <label class="block text-sm font-medium">Loan Tenure</label>
-              <span id="tenureText" class="text-sm font-bold text-indigo-900 bg-indigo-50 px-2 py-0.5 rounded border border-indigo-200">48 Months</span>
-            </div>
-            <input type="range" id="tenure" min="6" max="48" step="6" value="48" class="w-full accent-indigo-600">
-            <div class="flex justify-between text-[10px] text-slate-500 mt-1 font-medium">
-              <span>6m</span><span>12m</span><span>18m</span><span>24m</span><span>30m</span><span>36m</span><span>42m</span><span>48m</span>
-            </div>
-          </div>
+      <div class="highlight-box">
+        <div class="result-row">
+          <span class="result-label" style="color: var(--warning-text);">MAX APPROVED LOAN FACILITY</span>
+          <span class="result-value" id="resApprovedLoan">AED 0.00</span>
         </div>
-
-        <!-- Results Column -->
-        <div id="resultsPanel" class="bg-slate-100 rounded-xl p-5 flex flex-col justify-between border border-slate-200 pdf-avoid-break">
-          <div>
-            <h2 class="text-lg font-semibold border-b pb-2 mb-4 text-indigo-900">Assessment & Eligibility</h2>
-
-            <div class="space-y-3 text-sm">
-              <div class="flex justify-between">
-                <span class="text-slate-600">Applicable Profit Rate:</span>
-                <span id="appliedRate" class="font-bold text-indigo-700">6.99%</span>
-              </div>
-              <div class="flex justify-between">
-                <span class="text-slate-600">Max DBR Limit (50% Salary):</span>
-                <span id="maxDbr" class="font-semibold">AED 12,500</span>
-              </div>
-              <div class="flex justify-between">
-                <span class="text-slate-600">Retained Monthly Commitments:</span>
-                <span id="totalCommitments" class="font-semibold text-amber-700">AED 2,000</span>
-              </div>
-              <div class="flex justify-between border-t pt-2">
-                <span class="font-medium">Available Monthly EMI Headroom:</span>
-                <span id="availableEmi" class="font-bold text-emerald-600">AED 10,500</span>
-              </div>
-            </div>
-
-            <!-- Highlight Box -->
-            <div class="bg-indigo-900 text-white rounded-xl p-4 mt-5 text-center shadow-inner pdf-avoid-break">
-              <p id="principalLabel" class="text-xs uppercase tracking-wider text-indigo-200">Max Total Eligible Loan Facility</p>
-              <p id="maxPrincipal" class="text-3xl font-extrabold mt-1">AED 436,898</p>
-              <p id="capNoticeText" class="text-[11px] text-indigo-200 mt-1 hidden"></p>
-            </div>
-
-            <!-- BUYOUT BREAKDOWN -->
-            <div id="buyoutResultBreakdown" class="hidden mt-4 space-y-2">
-              <div class="flex justify-between text-xs bg-white p-2 rounded border">
-                <span class="text-slate-600">Total Debt to Settle (Buyout):</span>
-                <span id="totalBuyoutSettlement" class="font-bold text-amber-700">AED 65,000</span>
-              </div>
-              <div class="flex justify-between text-xs bg-emerald-50 p-2.5 rounded border border-emerald-200">
-                <span class="font-semibold text-emerald-900">Additional In-Hand Cash (Top-Up):</span>
-                <span id="topupCash" class="font-bold text-emerald-700 text-sm">AED 371,898</span>
-              </div>
-            </div>
-
-            <div id="statusAlert" class="mt-3 text-center text-xs py-1.5 px-3 rounded-lg font-medium hidden"></div>
-
-            <div class="grid grid-cols-2 gap-2 mt-4 text-center text-xs">
-              <div class="bg-white p-2.5 rounded-lg border">
-                <span class="block text-slate-500">Actual Monthly EMI</span>
-                <span id="actualEmiDisplay" class="font-bold text-slate-800 text-sm">AED 10,500</span>
-              </div>
-              <div class="bg-white p-2.5 rounded-lg border">
-                <span class="block text-slate-500">Total Interest Charged</span>
-                <span id="totalInterest" class="font-bold text-slate-800 text-sm">AED 67,102</span>
-              </div>
-            </div>
-            
-            <div class="mt-2 bg-white p-2 rounded-lg border text-center text-xs">
-              <span class="text-slate-500">Total Loan Repayment: </span>
-              <span id="totalRepayment" class="font-bold text-slate-800">AED 504,000</span>
-            </div>
-          </div>
-
-          <div class="mt-4 p-3 bg-amber-50 rounded-lg border border-amber-200 text-amber-900 text-[11px] pdf-avoid-break">
-            <p class="font-bold">⚠️ Notice on Additional Fees:</p>
-            <p>1% Processing Fee and 0.45% Takaful Insurance fee are <strong>not included</strong> in the calculations above and will be charged separately as per bank terms.</p>
-          </div>
-
-          <p class="text-[10px] text-slate-400 mt-2 text-center">*Indicative quote following CBUAE regulations. Date: <span id="quoteDate"></span>.</p>
+        <div class="result-row">
+          <span class="result-label" style="color: var(--warning-text);">Capitalized Upfront Fees (Fee + Takaful)</span>
+          <span class="result-value" id="resCapitalizedFees">AED 0.00</span>
+        </div>
+        <div class="result-row">
+          <span class="result-label" style="color: var(--warning-text);">Grace Period Accrued Profit (Actual/365)</span>
+          <span class="result-value" id="resGpProfit">AED 0.00</span>
+        </div>
+        <div class="result-row" style="font-size: 1rem; padding-top: 6px;">
+          <span class="result-label" style="color: var(--warning-text); font-weight: 700;">TOTAL ADJUSTED FINANCE PRINCIPAL</span>
+          <span class="result-value" id="resAdjustedPrincipal" style="font-weight: 700;">AED 0.00</span>
         </div>
       </div>
 
-      <!-- YEARLY BREAKDOWN -->
-      <div class="mt-8 border-t pt-6 pdf-avoid-break">
-        <h3 class="text-md font-bold text-indigo-900 mb-3">Year-Wise Loan Breakdown</h3>
-        <div class="overflow-x-auto">
-          <table class="w-full text-xs text-left border-collapse border border-slate-200">
-            <thead>
-              <tr class="bg-indigo-900 text-white">
-                <th class="p-2 border">Year / Period</th>
-                <th class="p-2 border">Total Payment (AED)</th>
-                <th class="p-2 border">Principal Paid (AED)</th>
-                <th class="p-2 border">Interest Paid (AED)</th>
-                <th class="p-2 border">Remaining Balance (AED)</th>
-              </tr>
-            </thead>
-            <tbody id="yearlyTableBody"></tbody>
-          </table>
+      <div class="success-box">
+        <div class="result-row">
+          <span class="result-label" style="color: var(--success-text); font-weight: 700;">ACTUAL MONTHLY EMI</span>
+          <span class="result-value" id="resEmi" style="font-size: 1.1rem; font-weight: 700;">AED 0.00</span>
+        </div>
+        <div class="result-row" id="buyoutSettleRow">
+          <span class="result-label" style="color: var(--success-text);">Total Buyout Debt Settled</span>
+          <span class="result-value" id="resBuyoutSettle">AED 0.00</span>
+        </div>
+        <div class="result-row" id="inHandRow">
+          <span class="result-label" style="color: var(--success-text); font-weight: 700;">NET IN-HAND CASH TOP-UP</span>
+          <span class="result-value" id="resInHand" style="font-weight: 700;">AED 0.00</span>
         </div>
       </div>
+    </div>
 
-      <!-- MONTHLY SCHEDULE -->
-      <div class="mt-6 border-t pt-6">
-        <h3 class="text-md font-bold text-indigo-900 mb-3">Monthly Repayment Schedule (Amortization)</h3>
-        <div class="overflow-x-auto">
-          <table class="w-full text-xs text-left border-collapse border border-slate-200">
-            <thead>
-              <tr class="bg-slate-800 text-white">
-                <th class="p-2 border">Month</th>
-                <th class="p-2 border">Monthly EMI (AED)</th>
-                <th class="p-2 border">Towards Principal (AED)</th>
-                <th class="p-2 border">Towards Interest (AED)</th>
-                <th class="p-2 border">Ending Balance (AED)</th>
-              </tr>
-            </thead>
-            <tbody id="monthlyTableBody" class="divide-y divide-slate-200"></tbody>
-          </table>
-        </div>
+    <!-- FULL WIDTH: AMORTIZATION SCHEDULE -->
+    <div class="card full-width">
+      <div class="card-header">
+        <span>3. Complete Amortization Schedule</span>
       </div>
-
+      <div class="schedule-container">
+        <table>
+          <thead>
+            <tr>
+              <th>Month</th>
+              <th>Beginning Balance</th>
+              <th>Monthly EMI</th>
+              <th>Principal Paid</th>
+              <th>Interest Paid</th>
+              <th>Ending Balance</th>
+            </tr>
+          </thead>
+          <tbody id="scheduleBody">
+            <!-- Dynamic Schedule Rows -->
+          </tbody>
+        </table>
+      </div>
     </div>
   </div>
+</div>
 
-  <script>
-    let activeFacilityType = 'fresh';
+<script>
+function fmt(val) {
+  return "AED " + Number(val).toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2});
+}
 
-    // Holds the latest computed figures (as real numbers, not formatted
-    // strings) so the Excel export can use them directly without having
-    // to re-parse "AED 12,500"-style text back out of the DOM.
-    let lastCalc = null;
+function fmtPct(val) {
+  return (val * 100).toFixed(2) + "%";
+}
 
-    function setFacilityType(type) {
-      activeFacilityType = type;
-      const freshBtn = document.getElementById('typeFreshBtn');
-      const buyoutBtn = document.getElementById('typeBuyoutBtn');
-      const buyoutFields = document.getElementById('buyoutFields');
-      const buyoutResultBreakdown = document.getElementById('buyoutResultBreakdown');
+function toggleBuyoutFields() {
+  const type = document.getElementById('facilityType').value;
+  const buyoutSec = document.getElementById('buyoutSection');
+  const buyoutSettleRow = document.getElementById('buyoutSettleRow');
+  const inHandRow = document.getElementById('inHandRow');
 
-      if (type === 'buyout') {
-        buyoutBtn.className = 'flex-1 py-2.5 rounded-lg font-semibold text-sm transition bg-indigo-900 text-white shadow';
-        freshBtn.className = 'flex-1 py-2.5 rounded-lg font-semibold text-sm transition bg-transparent text-slate-600 hover:text-slate-900';
-        buyoutFields.classList.remove('hidden');
-        buyoutResultBreakdown.classList.remove('hidden');
-        document.getElementById('principalLabel').innerText = 'Max Total Approved Facility (Buyout + Cash)';
-      } else {
-        freshBtn.className = 'flex-1 py-2.5 rounded-lg font-semibold text-sm transition bg-indigo-900 text-white shadow';
-        buyoutBtn.className = 'flex-1 py-2.5 rounded-lg font-semibold text-sm transition bg-transparent text-slate-600 hover:text-slate-900';
-        buyoutFields.classList.add('hidden');
-        buyoutResultBreakdown.classList.add('hidden');
-        document.getElementById('principalLabel').innerText = 'Max Eligible Fresh Loan Principal';
-      }
-      calculate();
-    }
-
-    function calculate() {
-      const isNational = document.getElementById('category').value === 'national';
-      const salary = parseFloat(document.getElementById('salary').value) || 0;
-      const salaryMultiplier = parseFloat(document.getElementById('salaryMultiplier').value) || 20;
-      const extraRate = parseFloat(document.getElementById('extraRate').value) || 0;
-      const cards = parseFloat(document.getElementById('cards').value) || 0;
-      const existingEmi = parseFloat(document.getElementById('existingEmi').value) || 0;
-      const tenure = parseInt(document.getElementById('tenure').value) || 48;
-
-      document.getElementById('tenureText').innerText = tenure + ' Months';
-
-      // AECB Score Evaluation
-      const aecbVal = document.getElementById('aecbScore').value.trim();
-      const aecbScore = parseFloat(aecbVal);
-      const aecbStatusText = document.getElementById('aecbStatusText');
-      
-      let hasAecbDiscount = false;
-      if (aecbVal !== '' && !isNaN(aecbScore) && aecbScore > 711) {
-        hasAecbDiscount = true;
-        aecbStatusText.className = "text-xs mt-1 font-semibold text-emerald-600";
-        aecbStatusText.innerText = "✓ Score > 711: 0.25% preferential discount applied!";
-      } else if (aecbVal !== '' && !isNaN(aecbScore) && aecbScore <= 711) {
-        aecbStatusText.className = "text-xs mt-1 font-medium text-amber-700";
-        aecbStatusText.innerText = "Standard rate applied (Score ≤ 711)";
-      } else {
-        aecbStatusText.className = "text-xs mt-1 font-medium text-slate-500";
-        aecbStatusText.innerText = "Standard rack rate applied (Score > 711 gets 0.25% discount)";
-      }
-
-      const buyoutLoan = parseFloat(document.getElementById('buyoutLoan').value) || 0;
-      const buyoutCard = parseFloat(document.getElementById('buyoutCard').value) || 0;
-      const totalBuyoutSettlement = buyoutLoan + buyoutCard;
-
-      const cardCommitment = cards * 0.05;
-      document.getElementById('cardCommitmentText').innerText = cardCommitment.toLocaleString();
-
-      let baseRate = 0;
-      if (isNational) {
-        if (salary < 10000) baseRate = 12.35;
-        else if (salary < 15000) baseRate = 6.99;
-        else if (salary < 30000) baseRate = 6.24;
-        else if (salary < 40000) baseRate = 5.49;
-        else baseRate = 5.25;
-      } else {
-        if (salary < 10000) baseRate = 12.81;
-        else if (salary < 20000) baseRate = 7.49;
-        else if (salary < 30000) baseRate = 6.99;
-        else if (salary < 50000) baseRate = 6.37;
-        else baseRate = 5.65;
-      }
-
-      let totalRate = baseRate + extraRate;
-      if (hasAecbDiscount) totalRate -= 0.25;
-      totalRate = Math.max(0.1, totalRate);
-
-      const maxDbr = salary * 0.50;
-      const commitments = cardCommitment + existingEmi;
-      const availableEmi = Math.max(0, maxDbr - commitments);
-      const monthlyRate = (totalRate / 100) / 12;
-      
-      let maxPrincipalFromDBR = 0;
-      if (monthlyRate > 0 && availableEmi > 0) {
-        maxPrincipalFromDBR = availableEmi * ((Math.pow(1 + monthlyRate, tenure) - 1) / (monthlyRate * Math.pow(1 + monthlyRate, tenure)));
-      }
-
-      const maxSalaryCap = salary * salaryMultiplier;
-      const finalPrincipal = Math.min(maxPrincipalFromDBR, maxSalaryCap);
-
-      let actualEmi = availableEmi;
-      if (finalPrincipal < maxPrincipalFromDBR && finalPrincipal > 0 && monthlyRate > 0) {
-        actualEmi = finalPrincipal * (monthlyRate * Math.pow(1 + monthlyRate, tenure)) / (Math.pow(1 + monthlyRate, tenure) - 1);
-      } else if (finalPrincipal === 0) {
-        actualEmi = 0;
-      }
-
-      const totalRepayment = actualEmi * tenure;
-      const totalInterest = Math.max(0, totalRepayment - finalPrincipal);
-
-      let rateDisplayText = totalRate.toFixed(2) + '%';
-      if (extraRate > 0) {
-        rateDisplayText += ` (${baseRate.toFixed(2)}% Base + ${extraRate}%)`;
-      }
-      document.getElementById('appliedRate').innerText = rateDisplayText;
-
-      document.getElementById('maxDbr').innerText = 'AED ' + Math.round(maxDbr).toLocaleString();
-      document.getElementById('totalCommitments').innerText = 'AED ' + Math.round(commitments).toLocaleString();
-      document.getElementById('availableEmi').innerText = 'AED ' + Math.round(availableEmi).toLocaleString();
-      document.getElementById('maxPrincipal').innerText = 'AED ' + Math.floor(finalPrincipal).toLocaleString();
-      document.getElementById('actualEmiDisplay').innerText = 'AED ' + Math.round(actualEmi).toLocaleString();
-      document.getElementById('totalRepayment').innerText = 'AED ' + Math.round(totalRepayment).toLocaleString();
-      document.getElementById('totalInterest').innerText = 'AED ' + Math.round(totalInterest).toLocaleString();
-      document.getElementById('quoteDate').innerText = new Date().toLocaleDateString();
-
-      const capNoticeText = document.getElementById('capNoticeText');
-      if (maxPrincipalFromDBR > maxSalaryCap && maxSalaryCap > 0) {
-        capNoticeText.innerText = `ℹ️ Capped by ${salaryMultiplier}x Salary Limit (AED ${Math.round(maxSalaryCap).toLocaleString()})`;
-        capNoticeText.classList.remove('hidden');
-      } else {
-        capNoticeText.classList.add('hidden');
-      }
-
-      const statusAlert = document.getElementById('statusAlert');
-      if (activeFacilityType === 'buyout') {
-        const topup = finalPrincipal - totalBuyoutSettlement;
-        document.getElementById('totalBuyoutSettlement').innerText = 'AED ' + totalBuyoutSettlement.toLocaleString();
-        
-        if (topup >= 0) {
-          document.getElementById('topupCash').innerText = 'AED ' + Math.floor(topup).toLocaleString();
-          statusAlert.className = "mt-3 text-center text-xs py-1.5 px-3 rounded-lg font-medium bg-emerald-100 text-emerald-800 border border-emerald-300 block";
-          statusAlert.innerText = "✓ Buyout Eligible: Salary DBR covers liability settlement + cash top-up.";
-        } else {
-          document.getElementById('topupCash').innerText = 'AED 0 (Insufficient DBR)';
-          statusAlert.className = "mt-3 text-center text-xs py-1.5 px-3 rounded-lg font-medium bg-red-100 text-red-800 border border-red-300 block";
-          statusAlert.innerText = "✕ Ineligible: Total buyout debt exceeds maximum eligible loan capacity.";
-        }
-      } else {
-        statusAlert.className = "hidden";
-      }
-
-      // Snapshot everything the Excel export needs, as plain numbers.
-      const monthlySchedule = generateAmortizationSchedule(finalPrincipal, actualEmi, monthlyRate, tenure);
-      lastCalc = {
-        facilityType: activeFacilityType,
-        rateDisplayText,
-        maxDbr,
-        commitments,
-        availableEmi,
-        finalPrincipal,
-        actualEmi,
-        totalInterest,
-        totalRepayment,
-        tenure,
-        isBuyout: activeFacilityType === 'buyout',
-        totalBuyoutSettlement,
-        topupCash: finalPrincipal - totalBuyoutSettlement,
-        buyoutEligible: (finalPrincipal - totalBuyoutSettlement) >= 0,
-        cappedBySalary: maxPrincipalFromDBR > maxSalaryCap && maxSalaryCap > 0,
-        maxSalaryCap,
-        salaryMultiplier,
-        monthlySchedule
-      };
-    }
-
-    function generateAmortizationSchedule(principal, emi, monthlyRate, totalMonths) {
-      const monthlyTable = document.getElementById('monthlyTableBody');
-      const yearlyTable = document.getElementById('yearlyTableBody');
-      monthlyTable.innerHTML = '';
-      yearlyTable.innerHTML = '';
-
-      const monthlyRows = [];
-
-      if (principal <= 0 || emi <= 0) return monthlyRows;
-
-      let currentBalance = principal;
-      let yrPrincipal = 0;
-      let yrInterest = 0;
-      let yrTotalPaid = 0;
-
-      for (let month = 1; month <= totalMonths; month++) {
-        let interestPart = currentBalance * monthlyRate;
-        let principalPart = emi - interestPart;
-
-        if (month === totalMonths) {
-          principalPart = currentBalance;
-        }
-
-        currentBalance = Math.max(0, currentBalance - principalPart);
-
-        yrPrincipal += principalPart;
-        yrInterest += interestPart;
-        yrTotalPaid += emi;
-
-        // Keep clean numeric values (rounded the same way the on-screen
-        // table displays them) for the Excel monthly breakup export.
-        monthlyRows.push({
-          month,
-          emi: Math.round(emi),
-          principal: Math.round(principalPart),
-          interest: Math.round(interestPart),
-          balance: Math.round(currentBalance)
-        });
-
-        const mRow = document.createElement('tr');
-        mRow.className = (month % 2 === 0 ? 'bg-slate-50' : 'bg-white') + ' pdf-avoid-break';
-        mRow.innerHTML = `
-          <td class="p-2 border text-center font-medium">${month}</td>
-          <td class="p-2 border">AED ${Math.round(emi).toLocaleString()}</td>
-          <td class="p-2 border text-emerald-700 font-medium">AED ${Math.round(principalPart).toLocaleString()}</td>
-          <td class="p-2 border text-amber-700 font-medium">AED ${Math.round(interestPart).toLocaleString()}</td>
-          <td class="p-2 border">AED ${Math.round(currentBalance).toLocaleString()}</td>
-        `;
-        monthlyTable.appendChild(mRow);
-
-        if (month % 12 === 0 || month === totalMonths) {
-          const yearNumber = Math.ceil(month / 12);
-          const periodLabel = (month % 12 !== 0) ? `Year ${yearNumber} (Partial: Mos ${month - (month % 12) + 1}-${month})` : `Year ${yearNumber}`;
-          
-          const yRow = document.createElement('tr');
-          yRow.className = 'bg-slate-100 font-semibold text-slate-900 pdf-avoid-break';
-          yRow.innerHTML = `
-            <td class="p-2 border text-center">${periodLabel}</td>
-            <td class="p-2 border">AED ${Math.round(yrTotalPaid).toLocaleString()}</td>
-            <td class="p-2 border text-emerald-700">AED ${Math.round(yrPrincipal).toLocaleString()}</td>
-            <td class="p-2 border text-amber-700">AED ${Math.round(yrInterest).toLocaleString()}</td>
-            <td class="p-2 border">AED ${Math.round(currentBalance).toLocaleString()}</td>
-          `;
-          yearlyTable.appendChild(yRow);
-
-          yrPrincipal = 0;
-          yrInterest = 0;
-          yrTotalPaid = 0;
-        }
-      }
-
-      return monthlyRows;
-    }
-
-function downloadExcel() {
-  if (!lastCalc) {
-    alert('Please wait for the calculation to finish, then try again.');
-    return;
-  }
-
-  const c = lastCalc;
-  const facilityTitle = c.isBuyout
-    ? 'Liability Buyout / Consolidation Quote'
-    : 'Fresh Personal Loan Quote';
-
-  // --- Sheet 1: Quote Summary (Assessment & Eligibility + Breakup) ---
-  // Customer-facing only: no raw applicant inputs (salary, AECB score,
-  // etc.) and no "2." style internal section numbering.
-  const summaryRows = [
-    [facilityTitle],
-    [`Tenure: ${c.tenure} Months`],
-    ['Indicative quote, subject to bank approval'],
-    [],
-    ['Assessment & Eligibility'],
-    ['Applicable Profit Rate', c.rateDisplayText],
-    ['Max DBR Limit (50% Salary)', 'AED ' + Math.round(c.maxDbr).toLocaleString()],
-    ['Retained Monthly Commitments', 'AED ' + Math.round(c.commitments).toLocaleString()],
-    ['Available Monthly EMI Headroom', 'AED ' + Math.round(c.availableEmi).toLocaleString()],
-    [],
-    [c.isBuyout ? 'Max Total Approved Facility (Buyout + Cash)' : 'Max Eligible Fresh Loan Principal', 'AED ' + Math.floor(c.finalPrincipal).toLocaleString()]
-  ];
-
-  if (c.cappedBySalary) {
-    summaryRows.push([`Capped by ${c.salaryMultiplier}x Salary Limit`, 'AED ' + Math.round(c.maxSalaryCap).toLocaleString()]);
-  }
-
-  if (c.isBuyout) {
-    summaryRows.push(
-      [],
-      ['Buyout Breakup'],
-      ['Total Debt to Settle (Buyout)', 'AED ' + Math.round(c.totalBuyoutSettlement).toLocaleString()],
-      ['Additional In-Hand Cash (Top-Up)', c.buyoutEligible ? 'AED ' + Math.floor(c.topupCash).toLocaleString() : 'AED 0 (Insufficient DBR)'],
-      ['Eligibility Status', c.buyoutEligible
-        ? 'Buyout Eligible: Salary DBR covers liability settlement + cash top-up.'
-        : 'Ineligible: Total buyout debt exceeds maximum eligible loan capacity.']
-    );
-  }
-
-  summaryRows.push(
-    [],
-    ['Actual Monthly EMI', 'AED ' + Math.round(c.actualEmi).toLocaleString()],
-    ['Total Interest Charged', 'AED ' + Math.round(c.totalInterest).toLocaleString()],
-    ['Total Loan Repayment', 'AED ' + Math.round(c.totalRepayment).toLocaleString()],
-    [],
-    ['Notice on Additional Fees'],
-    ['1% Processing Fee and 0.45% Takaful Insurance fee are not included in the calculations above and will be charged separately as per bank terms.'],
-    [],
-    [`Generated on ${new Date().toLocaleDateString()}`]
-  );
-
-  const summarySheet = XLSX.utils.aoa_to_sheet(summaryRows);
-  summarySheet['!cols'] = [{ wch: 42 }, { wch: 30 }];
-
-  // --- Sheet 2: Monthly Breakup (full amortization schedule) ---
-  const monthlyRows = [
-    ['Month', 'Monthly EMI (AED)', 'Towards Principal (AED)', 'Towards Interest (AED)', 'Ending Balance (AED)']
-  ];
-  c.monthlySchedule.forEach(row => {
-    monthlyRows.push([row.month, row.emi, row.principal, row.interest, row.balance]);
-  });
-  const monthlySheet = XLSX.utils.aoa_to_sheet(monthlyRows);
-  monthlySheet['!cols'] = [
-    { wch: 8 }, { wch: 18 }, { wch: 22 }, { wch: 20 }, { wch: 18 }
-  ];
-
-  const workbook = XLSX.utils.book_new();
-  XLSX.utils.book_append_sheet(workbook, summarySheet, 'Quote Summary');
-  XLSX.utils.book_append_sheet(workbook, monthlySheet, 'Monthly Breakup');
-
-  try {
-    XLSX.writeFile(workbook, `UAE_Loan_Quote_${c.facilityType.toUpperCase()}.xlsx`);
-  } catch (err) {
-    console.error('Excel generation error:', err);
-    alert('Sorry, something went wrong generating the Excel file. Please try again.');
+  if (type === 'Liability Buyout') {
+    buyoutSec.style.display = 'block';
+    buyoutSettleRow.style.display = 'flex';
+    inHandRow.style.display = 'flex';
+  } else {
+    buyoutSec.style.display = 'none';
+    buyoutSettleRow.style.display = 'none';
+    inHandRow.style.display = 'none';
   }
 }
 
-    document.querySelectorAll('input, select').forEach(el => el.addEventListener('input', calculate));
-    calculate();
+function calculateLoan() {
+  const facilityType = document.getElementById('facilityType').value;
+  const category = document.getElementById('customerCategory').value;
+  const salary = parseFloat(document.getElementById('salary').value) || 0;
+  const aecbScore = parseFloat(document.getElementById('aecbScore').value) || 0;
+  const months = parseInt(document.getElementById('tenure').value) || 1;
+  const gpDays = parseInt(document.getElementById('gpDays').value) || 0;
+  const procFeePct = parseFloat(document.getElementById('procFee').value) || 0;
+  const takafulPct = parseFloat(document.getElementById('takaful').value) || 0;
 
-    if ('serviceWorker' in navigator) {
-      navigator.serviceWorker.register('sw.js').catch(err => console.log(err));
+  const buyoutLoan = parseFloat(document.getElementById('buyoutLoan').value) || 0;
+  const buyoutCard = parseFloat(document.getElementById('buyoutCard').value) || 0;
+  const retainedCard = parseFloat(document.getElementById('retainedCard').value) || 0;
+  const existingEmi = parseFloat(document.getElementById('existingEmi').value) || 0;
+
+  // 1. Base Rate Matrix
+  let baseRate = 0;
+  if (category === 'UAE National') {
+    if (salary < 10000) baseRate = 0.1235;
+    else if (salary < 15000) baseRate = 0.0699;
+    else if (salary < 30000) baseRate = 0.0624;
+    else if (salary < 40000) baseRate = 0.0549;
+    else baseRate = 0.0525;
+  } else {
+    if (salary < 10000) baseRate = 0.1281;
+    else if (salary < 20000) baseRate = 0.0749;
+    else if (salary < 30000) baseRate = 0.0699;
+    else if (salary < 50000) baseRate = 0.0637;
+    else baseRate = 0.0565;
+  }
+
+  // 2. AECB Discount
+  const aecbDiscount = (aecbScore > 711) ? -0.0025 : 0.0;
+  const finalRate = Math.max(0.001, baseRate + aecbDiscount);
+  const monthlyRate = finalRate / 12;
+
+  // 3. DBR & Headroom
+  const maxDbr = salary * 0.50;
+  const retainedCardCommitment = retainedCard * 0.05;
+  const totalRetained = retainedCardCommitment + existingEmi;
+  const headroom = Math.max(0, maxDbr - totalRetained);
+
+  // 4. Maximum Facility Calculations
+  let maxDbrFacility = 0;
+  if (headroom > 0 && monthlyRate > 0) {
+    maxDbrFacility = (headroom / monthlyRate) * (1 - Math.pow(1 + monthlyRate, -months));
+  }
+  const maxSalaryCap = salary * 20;
+  const maxApprovedLoan = Math.min(maxDbrFacility, maxSalaryCap);
+
+  // 5. Capitalized Upfront Fees & Grace Period Profit (Actual/365)
+  const feeCapitalized = maxApprovedLoan * (procFeePct / 100);
+  const takafulCapitalized = maxApprovedLoan * (takafulPct / 100);
+  const basePrincipal = maxApprovedLoan + feeCapitalized + takafulCapitalized;
+
+  const gpProfit = basePrincipal * finalRate * (gpDays / 365);
+  const adjustedPrincipal = basePrincipal + gpProfit;
+
+  // 6. EMI Calculation
+  let emi = 0;
+  if (adjustedPrincipal > 0 && monthlyRate > 0) {
+    emi = adjustedPrincipal * (monthlyRate * Math.pow(1 + monthlyRate, months)) / (Math.pow(1 + monthlyRate, months) - 1);
+  }
+
+  // 7. Buyout & Net Cash Results
+  const totalBuyoutSettlement = (facilityType === 'Liability Buyout') ? (buyoutLoan + buyoutCard) : 0;
+  const netInHand = (facilityType === 'Liability Buyout') ? Math.max(0, maxApprovedLoan - totalBuyoutSettlement) : maxApprovedLoan;
+
+  // Update UI Results
+  document.getElementById('resBaseRate').innerText = fmtPct(baseRate);
+  document.getElementById('resAecbDiscount').innerText = fmtPct(aecbDiscount);
+  document.getElementById('resFinalRate').innerText = fmtPct(finalRate);
+  document.getElementById('resMaxDbr').innerText = fmt(maxDbr);
+  document.getElementById('resRetained').innerText = fmt(totalRetained);
+  document.getElementById('resHeadroom').innerText = fmt(headroom);
+  document.getElementById('resDbrCapacity').innerText = fmt(maxDbrFacility);
+  document.getElementById('resSalaryCap').innerText = fmt(maxSalaryCap);
+  document.getElementById('resApprovedLoan').innerText = fmt(maxApprovedLoan);
+  document.getElementById('resCapitalizedFees').innerText = fmt(feeCapitalized + takafulCapitalized);
+  document.getElementById('resGpProfit').innerText = fmt(gpProfit);
+  document.getElementById('resAdjustedPrincipal').innerText = fmt(adjustedPrincipal);
+  document.getElementById('resEmi').innerText = fmt(emi);
+  document.getElementById('resBuyoutSettle').innerText = fmt(totalBuyoutSettlement);
+  document.getElementById('resInHand').innerText = fmt(netInHand);
+
+  // 8. Generate Amortization Schedule
+  generateSchedule(adjustedPrincipal, finalRate, emi, months);
+}
+
+function generateSchedule(principal, annualRate, emi, months) {
+  const tbody = document.getElementById('scheduleBody');
+  tbody.innerHTML = '';
+
+  let balance = principal;
+  const monthlyRate = annualRate / 12;
+
+  for (let m = 1; m <= months; m++) {
+    if (balance <= 0) break;
+
+    const interestPaid = Math.round((balance * monthlyRate) * 100) / 100;
+    let principalPaid = Math.round((emi - interestPaid) * 100) / 100;
+    
+    if (m === months || balance - principalPaid < 0) {
+      principalPaid = balance;
     }
-  </script>
+
+    const endBalance = Math.max(0, Math.round((balance - principalPaid) * 100) / 100);
+
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td>${m}</td>
+      <td>${fmt(balance)}</td>
+      <td>${fmt(emi)}</td>
+      <td>${fmt(principalPaid)}</td>
+      <td>${fmt(interestPaid)}</td>
+      <td>${fmt(endBalance)}</td>
+    `;
+    tbody.appendChild(tr);
+
+    balance = endBalance;
+  }
+}
+
+// Initial Run
+toggleBuyoutFields();
+calculateLoan();
+</script>
 </body>
 </html>
