@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>UAE Loan & Buyout Calculator with Grace Period</title>
+  <title>UAE Personal Loan & Buyout Calculator</title>
   <style>
     :root {
       --bg-primary: #f8fafc;
@@ -13,11 +13,12 @@
       --border-color: #e2e8f0;
       --primary: #1e293b;
       --accent: #2563eb;
-      --accent-light: #eff6ff;
       --success-bg: #dcfce7;
       --success-text: #14532d;
       --warning-bg: #fef3c7;
       --warning-text: #78350f;
+      --danger-bg: #fee2e2;
+      --danger-text: #991b1b;
     }
 
     * {
@@ -127,7 +128,7 @@
     .result-row {
       display: flex;
       justify-content: space-between;
-      padding: 10px 0;
+      padding: 9px 0;
       border-bottom: 1px dashed var(--border-color);
       font-size: 0.9rem;
     }
@@ -159,6 +160,17 @@
       border-radius: 8px;
       margin-top: 12px;
     }
+
+    .badge {
+      padding: 4px 10px;
+      border-radius: 12px;
+      font-size: 0.75rem;
+      font-weight: 700;
+      text-transform: uppercase;
+    }
+
+    .badge-success { background: var(--success-bg); color: var(--success-text); }
+    .badge-danger { background: var(--danger-bg); color: var(--danger-text); }
 
     .full-width {
       grid-column: 1 / -1;
@@ -200,14 +212,14 @@
 <div class="container">
   <header>
     <h1>UAE Personal Loan & Buyout Calculator</h1>
-    <p>Integrated CBUAE 50% DBR Rules, Capitalized Upfront Fees & Grace Period Interest (Actual/365)</p>
+    <p>Salary Multiplier Maximum Eligibility | Disbursal Upfront Fees | Grace Period Interest (Actual/365)</p>
   </header>
 
   <div class="grid-layout">
     <!-- LEFT COLUMN: INPUTS -->
     <div class="card">
       <div class="card-header">
-        <span>1. Applicant & Loan Inputs</span>
+        <span>1. Applicant & Loan Parameters</span>
       </div>
 
       <div class="form-row">
@@ -229,28 +241,23 @@
 
       <div class="form-row">
         <div class="form-group">
-          <label for="salary">Monthly Salary (AED)</label>
+          <label for="salary">Monthly Gross Salary (AED)</label>
           <input type="number" id="salary" value="25000" oninput="calculateLoan();">
         </div>
         <div class="form-group">
-          <label for="aecbScore">AECB Credit Score</label>
-          <input type="number" id="aecbScore" value="725" oninput="calculateLoan();">
+          <label for="multiplier">Salary Multiplier Cap (x)</label>
+          <input type="number" id="multiplier" value="20" step="0.5" oninput="calculateLoan();">
         </div>
       </div>
 
       <div class="form-row">
         <div class="form-group">
-          <label for="tenure">Tenure (Months)</label>
-          <input type="number" id="tenure" value="48" oninput="calculateLoan();">
+          <label for="aecbScore">AECB Credit Score</label>
+          <input type="number" id="aecbScore" value="725" oninput="calculateLoan();">
         </div>
         <div class="form-group">
-          <label for="gpDays">Grace Period (Days)</label>
-          <select id="gpDays" onchange="calculateLoan();">
-            <option value="0">0 Days</option>
-            <option value="30">30 Days</option>
-            <option value="60">60 Days</option>
-            <option value="90" selected>90 Days</option>
-          </select>
+          <label for="tenure">Tenure (Months)</label>
+          <input type="number" id="tenure" value="48" oninput="calculateLoan();">
         </div>
       </div>
 
@@ -265,24 +272,34 @@
         </div>
       </div>
 
+      <div class="form-group">
+        <label for="gpDays">Grace Period (Days)</label>
+        <select id="gpDays" onchange="calculateLoan();">
+          <option value="0">0 Days</option>
+          <option value="30">30 Days</option>
+          <option value="60">60 Days</option>
+          <option value="90" selected>90 Days</option>
+        </select>
+      </div>
+
       <div id="buyoutSection">
         <div class="card-header" style="margin-top: 12px; font-size: 0.95rem;">
           <span>Buyout Debt Settlement Inputs</span>
         </div>
         <div class="form-row">
           <div class="form-group">
-            <label for="buyoutLoan">Buyout Loan Principal (AED)</label>
+            <label for="buyoutLoan">Buyout Loan Outstanding (AED)</label>
             <input type="number" id="buyoutLoan" value="50000" oninput="calculateLoan();">
           </div>
           <div class="form-group">
-            <label for="buyoutCard">Buyout Credit Cards (AED)</label>
+            <label for="buyoutCard">Buyout Credit Cards Settle (AED)</label>
             <input type="number" id="buyoutCard" value="15000" oninput="calculateLoan();">
           </div>
         </div>
       </div>
 
       <div class="card-header" style="margin-top: 12px; font-size: 0.95rem;">
-        <span>Retained Existing Commitments</span>
+        <span>Retained Commitments</span>
       </div>
       <div class="form-row">
         <div class="form-group">
@@ -290,7 +307,7 @@
           <input type="number" id="retainedCard" value="10000" oninput="calculateLoan();">
         </div>
         <div class="form-group">
-          <label for="existingEmi">Retained EMIs (Auto/Mortgage)</label>
+          <label for="existingEmi">Retained EMIs (Mortgage/Auto)</label>
           <input type="number" id="existingEmi" value="1000" oninput="calculateLoan();">
         </div>
       </div>
@@ -300,6 +317,7 @@
     <div class="card">
       <div class="card-header">
         <span>2. Eligibility & Assessment Results</span>
+        <span id="dbrBadge" class="badge badge-success">DBR Compliant</span>
       </div>
 
       <div class="result-row">
@@ -311,11 +329,40 @@
         <span class="result-value" id="resAecbDiscount">0.00%</span>
       </div>
       <div class="result-row">
-        <span class="result-label">Final Annual Profit Rate</span>
+        <span class="result-label">Final Profit Rate</span>
         <span class="result-value" id="resFinalRate" style="color: var(--accent);">0.00%</span>
       </div>
+
+      <div class="highlight-box">
+        <div class="result-row">
+          <span class="result-label" style="color: var(--warning-text); font-weight: 700;">MAX ELIGIBLE LOAN FACILITY (Salary × Multiplier)</span>
+          <span class="result-value" id="resMaxEligible" style="font-size: 1.1rem; font-weight: 700;">AED 0.00</span>
+        </div>
+        <div class="result-row">
+          <span class="result-label" style="color: var(--warning-text);">Processing Fee (Charged on Disbursal)</span>
+          <span class="result-value" id="resProcFeeAed">AED 0.00</span>
+        </div>
+        <div class="result-row">
+          <span class="result-label" style="color: var(--warning-text);">Takaful Fee (Charged on Disbursal)</span>
+          <span class="result-value" id="resTakafulAed">AED 0.00</span>
+        </div>
+        <div class="result-row">
+          <span class="result-label" style="color: var(--warning-text);">Total Upfront Fees Charged</span>
+          <span class="result-value" id="resTotalUpfrontFees" style="font-weight: 700;">AED 0.00</span>
+        </div>
+      </div>
+
+      <div class="result-row" style="margin-top: 10px;">
+        <span class="result-label">Grace Period Accrued Profit (Actual/365)</span>
+        <span class="result-value" id="resGpProfit">AED 0.00</span>
+      </div>
       <div class="result-row">
-        <span class="result-label">Max DBR Limit (50% Salary)</span>
+        <span class="result-label">Total Adjusted Finance Principal</span>
+        <span class="result-value" id="resAdjustedPrincipal" style="font-weight: 700;">AED 0.00</span>
+      </div>
+
+      <div class="result-row">
+        <span class="result-label">CBUAE Max DBR Limit (50% Salary)</span>
         <span class="result-value" id="resMaxDbr">AED 0.00</span>
       </div>
       <div class="result-row">
@@ -323,50 +370,22 @@
         <span class="result-value" id="resRetained">AED 0.00</span>
       </div>
       <div class="result-row">
-        <span class="result-label">Monthly EMI Headroom</span>
+        <span class="result-label">Available Monthly EMI Headroom</span>
         <span class="result-value" id="resHeadroom">AED 0.00</span>
-      </div>
-
-      <div class="result-row" style="margin-top: 10px;">
-        <span class="result-label">Max Capacity from DBR</span>
-        <span class="result-value" id="resDbrCapacity">AED 0.00</span>
-      </div>
-      <div class="result-row">
-        <span class="result-label">Max Capacity from Salary Multiplier (20x)</span>
-        <span class="result-value" id="resSalaryCap">AED 0.00</span>
-      </div>
-
-      <div class="highlight-box">
-        <div class="result-row">
-          <span class="result-label" style="color: var(--warning-text);">MAX APPROVED LOAN FACILITY</span>
-          <span class="result-value" id="resApprovedLoan">AED 0.00</span>
-        </div>
-        <div class="result-row">
-          <span class="result-label" style="color: var(--warning-text);">Capitalized Upfront Fees (Fee + Takaful)</span>
-          <span class="result-value" id="resCapitalizedFees">AED 0.00</span>
-        </div>
-        <div class="result-row">
-          <span class="result-label" style="color: var(--warning-text);">Grace Period Accrued Profit (Actual/365)</span>
-          <span class="result-value" id="resGpProfit">AED 0.00</span>
-        </div>
-        <div class="result-row" style="font-size: 1rem; padding-top: 6px;">
-          <span class="result-label" style="color: var(--warning-text); font-weight: 700;">TOTAL ADJUSTED FINANCE PRINCIPAL</span>
-          <span class="result-value" id="resAdjustedPrincipal" style="font-weight: 700;">AED 0.00</span>
-        </div>
       </div>
 
       <div class="success-box">
         <div class="result-row">
           <span class="result-label" style="color: var(--success-text); font-weight: 700;">ACTUAL MONTHLY EMI</span>
-          <span class="result-value" id="resEmi" style="font-size: 1.1rem; font-weight: 700;">AED 0.00</span>
+          <span class="result-value" id="resEmi" style="font-size: 1.15rem; font-weight: 700;">AED 0.00</span>
         </div>
         <div class="result-row" id="buyoutSettleRow">
           <span class="result-label" style="color: var(--success-text);">Total Buyout Debt Settled</span>
           <span class="result-value" id="resBuyoutSettle">AED 0.00</span>
         </div>
         <div class="result-row" id="inHandRow">
-          <span class="result-label" style="color: var(--success-text); font-weight: 700;">NET IN-HAND CASH TOP-UP</span>
-          <span class="result-value" id="resInHand" style="font-weight: 700;">AED 0.00</span>
+          <span class="result-label" style="color: var(--success-text); font-weight: 700;">NET IN-HAND CASH DISBURSED</span>
+          <span class="result-value" id="resInHand" style="font-size: 1.1rem; font-weight: 700;">AED 0.00</span>
         </div>
       </div>
     </div>
@@ -410,16 +429,13 @@ function toggleBuyoutFields() {
   const type = document.getElementById('facilityType').value;
   const buyoutSec = document.getElementById('buyoutSection');
   const buyoutSettleRow = document.getElementById('buyoutSettleRow');
-  const inHandRow = document.getElementById('inHandRow');
 
   if (type === 'Liability Buyout') {
     buyoutSec.style.display = 'block';
     buyoutSettleRow.style.display = 'flex';
-    inHandRow.style.display = 'flex';
   } else {
     buyoutSec.style.display = 'none';
     buyoutSettleRow.style.display = 'none';
-    inHandRow.style.display = 'none';
   }
 }
 
@@ -427,6 +443,7 @@ function calculateLoan() {
   const facilityType = document.getElementById('facilityType').value;
   const category = document.getElementById('customerCategory').value;
   const salary = parseFloat(document.getElementById('salary').value) || 0;
+  const multiplier = parseFloat(document.getElementById('multiplier').value) || 0;
   const aecbScore = parseFloat(document.getElementById('aecbScore').value) || 0;
   const months = parseInt(document.getElementById('tenure').value) || 1;
   const gpDays = parseInt(document.getElementById('gpDays').value) || 0;
@@ -459,56 +476,62 @@ function calculateLoan() {
   const finalRate = Math.max(0.001, baseRate + aecbDiscount);
   const monthlyRate = finalRate / 12;
 
-  // 3. DBR & Headroom
+  // 3. Maximum Eligible Loan Facility = Salary * Multiplier
+  const maxEligibleLoan = salary * multiplier;
+
+  // 4. Processing Fees & Takaful charged on Loan Disbursal Amount
+  const procFeeAed = maxEligibleLoan * (procFeePct / 100);
+  const takafulAed = maxEligibleLoan * (takafulPct / 100);
+  const totalUpfrontFees = procFeeAed + takafulAed;
+
+  // 5. Grace Period Accrued Interest (Actual/365) on Disbursal Amount
+  const gpProfit = maxEligibleLoan * finalRate * (gpDays / 365);
+  const adjustedPrincipal = maxEligibleLoan + gpProfit;
+
+  // 6. Monthly EMI Calculation
+  let emi = 0;
+  if (adjustedPrincipal > 0 && monthlyRate > 0 && months > 0) {
+    emi = adjustedPrincipal * (monthlyRate * Math.pow(1 + monthlyRate, months)) / (Math.pow(1 + monthlyRate, months) - 1);
+  }
+
+  // 7. DBR Headroom & Compliance Check
   const maxDbr = salary * 0.50;
   const retainedCardCommitment = retainedCard * 0.05;
   const totalRetained = retainedCardCommitment + existingEmi;
   const headroom = Math.max(0, maxDbr - totalRetained);
+  const totalDbrPct = salary > 0 ? ((totalRetained + emi) / salary) * 100 : 0;
 
-  // 4. Maximum Facility Calculations
-  let maxDbrFacility = 0;
-  if (headroom > 0 && monthlyRate > 0) {
-    maxDbrFacility = (headroom / monthlyRate) * (1 - Math.pow(1 + monthlyRate, -months));
-  }
-  const maxSalaryCap = salary * 20;
-  const maxApprovedLoan = Math.min(maxDbrFacility, maxSalaryCap);
-
-  // 5. Capitalized Upfront Fees & Grace Period Profit (Actual/365)
-  const feeCapitalized = maxApprovedLoan * (procFeePct / 100);
-  const takafulCapitalized = maxApprovedLoan * (takafulPct / 100);
-  const basePrincipal = maxApprovedLoan + feeCapitalized + takafulCapitalized;
-
-  const gpProfit = basePrincipal * finalRate * (gpDays / 365);
-  const adjustedPrincipal = basePrincipal + gpProfit;
-
-  // 6. EMI Calculation
-  let emi = 0;
-  if (adjustedPrincipal > 0 && monthlyRate > 0) {
-    emi = adjustedPrincipal * (monthlyRate * Math.pow(1 + monthlyRate, months)) / (Math.pow(1 + monthlyRate, months) - 1);
+  const dbrBadge = document.getElementById('dbrBadge');
+  if (emi <= headroom) {
+    dbrBadge.className = "badge badge-success";
+    dbrBadge.innerText = `DBR COMPLIANT (${totalDbrPct.toFixed(1)}%)`;
+  } else {
+    dbrBadge.className = "badge badge-danger";
+    dbrBadge.innerText = `EXCEEDS DBR (${totalDbrPct.toFixed(1)}%)`;
   }
 
-  // 7. Buyout & Net Cash Results
+  // 8. Net Disbursed In-Hand Cash
   const totalBuyoutSettlement = (facilityType === 'Liability Buyout') ? (buyoutLoan + buyoutCard) : 0;
-  const netInHand = (facilityType === 'Liability Buyout') ? Math.max(0, maxApprovedLoan - totalBuyoutSettlement) : maxApprovedLoan;
+  const netInHand = Math.max(0, maxEligibleLoan - totalUpfrontFees - totalBuyoutSettlement);
 
-  // Update UI Results
+  // Update UI Output
   document.getElementById('resBaseRate').innerText = fmtPct(baseRate);
   document.getElementById('resAecbDiscount').innerText = fmtPct(aecbDiscount);
   document.getElementById('resFinalRate').innerText = fmtPct(finalRate);
+  document.getElementById('resMaxEligible').innerText = fmt(maxEligibleLoan);
+  document.getElementById('resProcFeeAed').innerText = fmt(procFeeAed);
+  document.getElementById('resTakafulAed').innerText = fmt(takafulAed);
+  document.getElementById('resTotalUpfrontFees').innerText = fmt(totalUpfrontFees);
+  document.getElementById('resGpProfit').innerText = fmt(gpProfit);
+  document.getElementById('resAdjustedPrincipal').innerText = fmt(adjustedPrincipal);
   document.getElementById('resMaxDbr').innerText = fmt(maxDbr);
   document.getElementById('resRetained').innerText = fmt(totalRetained);
   document.getElementById('resHeadroom').innerText = fmt(headroom);
-  document.getElementById('resDbrCapacity').innerText = fmt(maxDbrFacility);
-  document.getElementById('resSalaryCap').innerText = fmt(maxSalaryCap);
-  document.getElementById('resApprovedLoan').innerText = fmt(maxApprovedLoan);
-  document.getElementById('resCapitalizedFees').innerText = fmt(feeCapitalized + takafulCapitalized);
-  document.getElementById('resGpProfit').innerText = fmt(gpProfit);
-  document.getElementById('resAdjustedPrincipal').innerText = fmt(adjustedPrincipal);
   document.getElementById('resEmi').innerText = fmt(emi);
   document.getElementById('resBuyoutSettle').innerText = fmt(totalBuyoutSettlement);
   document.getElementById('resInHand').innerText = fmt(netInHand);
 
-  // 8. Generate Amortization Schedule
+  // 9. Generate Amortization Schedule
   generateSchedule(adjustedPrincipal, finalRate, emi, months);
 }
 
